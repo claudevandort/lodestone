@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lodestone": {
+      "command": "/home/claudevandort/Github/lodestone-mcp/.venv/bin/lodestone-mcp",
+      "args": []
+    }
+  }
+}

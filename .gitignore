@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.lodestone/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+evals/results/
