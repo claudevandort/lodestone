@@ -94,6 +94,32 @@ If a `remember` call fails validation, FIX the args and retry — do not \
 abandon the dual-write because the first call errored, and do not skip \
 remaining files. Both writes are required for a memory to be team-shared.
 
+CROSS-PROJECT RECALL
+By default, `recall` searches only THIS project's memories. You can opt in to \
+searching across ALL projects this user has worked on by passing \
+`include_other_projects: true`. Use it when:
+- The current project is new and likely has no relevant local memories yet
+- You're tackling a generalizable problem (architecture pattern, tooling \
+choice, library gotcha, code convention) where insights from related \
+projects often apply
+- An initial same-project recall returned nothing useful AND the underlying \
+problem isn't project-specific
+
+Do NOT default-on cross-project recall — it adds noise for project-specific \
+questions ("how does our auth work" should never reach into other projects).
+
+When a cross-project recall surfaces something potentially relevant (each \
+result will have `cross_project: true` and `source_project: <label>`):
+1. NEVER apply it silently. The other project's stack, context, or \
+constraints may differ from the current one.
+2. Explicitly mention which project it came from in your reply.
+3. ASK the user whether to apply it to the current task before doing so. \
+Example: "Memory from <source_project> suggests X — worth applying here?"
+4. If the user accepts and you adapt it, ALSO call `remember` to capture the \
+local adaptation as a current-project memory, linked back to the cross-project \
+source via `links: [{to_uuid: <source_uuid>, kind: "related"}]`. This builds a \
+traceable lineage of "where did this convention come from".
+
 Use the kinds:
 - decision: architecture, dependencies, tradeoffs ("chose X over Y because Z")
 - attempt: things tried with their outcome (always set `outcome`); content \
@@ -193,6 +219,7 @@ def recall(
     query: str,
     k: int = 5,
     filters: dict[str, Any] | None = None,
+    include_other_projects: bool = False,
 ) -> list[dict]:
     """Search project memories. Call BEFORE tackling work — and BROADLY.
 
@@ -206,13 +233,32 @@ def recall(
     Hybrid retrieval (semantic + keyword), so paraphrased queries work —
     describe the underlying problem in natural language, not the syntax.
 
-    Returns top-k re-ranked by recency × confidence × supersede penalty,
-    with 1-hop link expansion (so superseded / related / contradicting
-    memories surface together).
+    CROSS-PROJECT MODE: set `include_other_projects: true` to also search
+    memories from other projects this user has worked on. Results from other
+    projects come back with `cross_project: true` and `source_project:
+    <label>`. They are reranked with a penalty so same-project results
+    outrank them at similar raw match quality — a cross-project hit means
+    the match was strong enough to overcome the penalty, so it deserves a
+    closer look.
+
+    When you incorporate a cross-project insight, ALWAYS surface its origin
+    to the user and ASK before applying ("Memory from <source_project>
+    suggests X. Worth using here?"). Don't merge cross-project insights into
+    your answer as if they were established for the current project — they
+    are suggestions, not local conventions.
+
+    Returns top-k re-ranked by recency × confidence × supersede × (cross-
+    project) penalty, with 1-hop link expansion.
 
     filters: {kind, tags, outcome, min_confidence, since, include_superseded}
     """
-    return memory.recall(_conn(ctx), query=query, k=k, filters=filters)
+    return memory.recall(
+        _conn(ctx),
+        query=query,
+        k=k,
+        filters=filters,
+        include_other_projects=include_other_projects,
+    )
 
 
 @mcp.tool()

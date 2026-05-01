@@ -35,4 +35,16 @@ def open_db(path: Path | None = None):
 def _ensure_schema(conn) -> None:
     schema_path = Path(__file__).parent / "schema.sql"
     conn.executescript(schema_path.read_text())
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn) -> None:
+    """Apply additive schema changes that CREATE TABLE IF NOT EXISTS can't.
+
+    SQLite has no 'ADD COLUMN IF NOT EXISTS', so we introspect and ALTER
+    only when missing. Each block is idempotent.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
+    if "project_label" not in cols:
+        conn.execute("ALTER TABLE memories ADD COLUMN project_label TEXT")

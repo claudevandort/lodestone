@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS memories (
   id            INTEGER PRIMARY KEY,
   uuid          TEXT NOT NULL UNIQUE,
   project_id    TEXT NOT NULL,
+  project_label TEXT,
   author_id     TEXT NOT NULL DEFAULT 'claude',
   kind          TEXT NOT NULL CHECK (kind IN (
                   'attempt','decision','gotcha','preference','fact','question'

@@ -107,3 +107,51 @@ def test_results_sorted_descending_by_score():
 def test_weights_sum_to_one():
     """Sanity check on the constants — they form a convex combination."""
     assert ranking.RECENCY_WEIGHT + ranking.BASELINE_WEIGHT == pytest.approx(1.0)
+
+
+# ---- cross-project penalty ----
+
+def _row_with_project(*, id, project_id, **kw):
+    base = _row(id=id, **kw)
+    base["project_id"] = project_id
+    return base
+
+
+def test_cross_project_penalty_applied_when_current_project_id_set():
+    base = {1: 0.1, 2: 0.1}
+    rows = [
+        _row_with_project(id=1, project_id="local"),
+        _row_with_project(id=2, project_id="other"),
+    ]
+    ranked = dict(
+        (r["id"], s)
+        for s, r in ranking.apply_postretrieval_factors(
+            rows, base, NOW, current_project_id="local"
+        )
+    )
+    assert ranked[2] == pytest.approx(ranked[1] * ranking.CROSS_PROJECT_PENALTY)
+
+
+def test_no_cross_project_penalty_when_current_project_id_none():
+    """Backward-compat: callers that don't pass current_project_id get the
+    pre-existing behavior (no cross-project distinction)."""
+    base = {1: 0.1, 2: 0.1}
+    rows = [
+        _row_with_project(id=1, project_id="local"),
+        _row_with_project(id=2, project_id="other"),
+    ]
+    ranked = dict(
+        (r["id"], s) for s, r in ranking.apply_postretrieval_factors(rows, base, NOW)
+    )
+    assert ranked[1] == ranked[2]
+
+
+def test_cross_project_penalty_does_not_affect_same_project_rows():
+    base = {1: 0.1}
+    rows = [_row_with_project(id=1, project_id="local")]
+    ranked = ranking.apply_postretrieval_factors(
+        rows, base, NOW, current_project_id="local"
+    )
+    # Same project → no penalty; result equals the no-current-project baseline
+    baseline = ranking.apply_postretrieval_factors(rows, base, NOW)
+    assert ranked[0][0] == pytest.approx(baseline[0][0])

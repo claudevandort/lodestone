@@ -54,6 +54,7 @@ def remember(
     confidence: float = 0.7,
     links: list[dict[str, str]] | None = None,
     project_id: str | None = None,
+    project_label: str | None = None,
 ) -> dict:
     if kind not in VALID_KINDS:
         raise ValueError(f"invalid kind: {kind}")
@@ -63,17 +64,23 @@ def remember(
         raise ValueError(f"invalid outcome: {outcome}")
     confidence = _coerce_confidence(confidence)
 
-    pid = project_id or derive_project_id()[0]
+    if project_id is None:
+        pid, derived_label = derive_project_id()
+        plabel = project_label or derived_label
+    else:
+        pid = project_id
+        plabel = project_label or project_id  # caller-passed id stands in for label
+
     uid = str(uuidlib.uuid4())
     now = _now()
 
     cur = conn.execute(
         """INSERT INTO memories
-             (uuid, project_id, kind, title, content, outcome, confidence,
-              context, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             (uuid, project_id, project_label, kind, title, content, outcome,
+              confidence, context, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            uid, pid, kind, title, content, outcome, confidence,
+            uid, pid, plabel, kind, title, content, outcome, confidence,
             json.dumps(context) if context else None, now, now,
         ),
     )
@@ -94,6 +101,7 @@ def recall(
     k: int = 5,
     filters: dict[str, Any] | None = None,
     project_id: str | None = None,
+    include_other_projects: bool = False,
 ) -> list[dict]:
     pid = project_id or derive_project_id()[0]
     filters = filters or {}
@@ -104,8 +112,14 @@ def recall(
     if not base_scores:
         return []
 
-    rows = _fetch_filtered(conn, list(base_scores.keys()), pid, filters)
-    ranked = ranking.apply_postretrieval_factors(rows, base_scores, _now())[:k]
+    rows = _fetch_filtered(
+        conn, list(base_scores.keys()), pid, filters,
+        include_other_projects=include_other_projects,
+    )
+    ranked = ranking.apply_postretrieval_factors(
+        rows, base_scores, _now(),
+        current_project_id=pid,
+    )[:k]
 
     if ranked:
         conn.executemany(
@@ -114,7 +128,10 @@ def recall(
         )
         conn.commit()
 
-    return [_serialize(conn, row, score=score, expand_links=True) for score, row in ranked]
+    return [
+        _serialize(conn, row, score=score, expand_links=True, current_project_id=pid)
+        for score, row in ranked
+    ]
 
 
 def _retrieve_candidates(
@@ -316,15 +333,20 @@ def _fetch_filtered(
     ids: list[int],
     pid: str,
     filters: dict[str, Any],
+    *,
+    include_other_projects: bool = False,
 ) -> list[sqlite3.Row]:
     placeholders = ",".join("?" * len(ids))
     sql = (
         f"SELECT * FROM memories "
         f"WHERE id IN ({placeholders}) "
-        f"  AND project_id = ? "
         f"  AND deleted_at IS NULL"
     )
-    params: list[Any] = [*ids, pid]
+    params: list[Any] = [*ids]
+
+    if not include_other_projects:
+        sql += " AND project_id = ?"
+        params.append(pid)
 
     if filters.get("kind"):
         kinds = filters["kind"] if isinstance(filters["kind"], list) else [filters["kind"]]
@@ -352,6 +374,7 @@ def _serialize(
     *,
     score: float | None = None,
     expand_links: bool = False,
+    current_project_id: str | None = None,
 ) -> dict:
     tags = [
         r["name"]
@@ -362,6 +385,11 @@ def _serialize(
             (row["id"],),
         )
     ]
+
+    is_cross = (
+        current_project_id is not None
+        and row["project_id"] != current_project_id
+    )
 
     out: dict[str, Any] = {
         "uuid": row["uuid"],
@@ -377,6 +405,8 @@ def _serialize(
         "verified_at": row["verified_at"],
         "superseded_by_uuid": None,
         "access_count": row["access_count"],
+        "cross_project": is_cross,
+        "source_project": (row["project_label"] or row["project_id"]) if is_cross else None,
     }
 
     if row["superseded_by"]:

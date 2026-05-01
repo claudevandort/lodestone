@@ -121,6 +121,96 @@ def test_recall_isolates_by_project(temp_db, fake_embed, clock):
     assert results == []
 
 
+# ---- cross-project recall ----
+
+def test_recall_with_include_other_projects_surfaces_them_tagged(temp_db, fake_embed, clock):
+    """Opt-in cross-project mode: other projects' memories appear, marked."""
+    other = memory.remember(
+        temp_db,
+        kind="fact",
+        title="cache TTL is five minutes",
+        content="redis keys expire after five minutes",
+        project_id="alpha",
+        project_label="alpha-project",
+    )
+
+    results = memory.recall(
+        temp_db,
+        query="cache TTL",
+        project_id="beta",
+        k=5,
+        include_other_projects=True,
+    )
+    uuids = [r["uuid"] for r in results]
+    assert other["uuid"] in uuids
+
+    hit = next(r for r in results if r["uuid"] == other["uuid"])
+    assert hit["cross_project"] is True
+    assert hit["source_project"] == "alpha-project"
+
+
+def test_recall_default_still_excludes_other_projects(temp_db, fake_embed, clock):
+    """Sanity: leaving include_other_projects unset preserves prior behavior."""
+    memory.remember(
+        temp_db,
+        kind="fact",
+        title="cache TTL is five minutes",
+        content="redis keys expire after five minutes",
+        project_id="alpha",
+    )
+    results = memory.recall(temp_db, query="cache TTL", project_id="beta", k=5)
+    assert results == []
+
+
+def test_cross_project_results_outranked_by_local_at_equal_match(temp_db, fake_embed, clock):
+    """Same content in two projects: local memory ranks above cross-project
+    one because the cross-project penalty is applied."""
+    memory.remember(
+        temp_db,
+        kind="fact",
+        title="connection pool starvation",
+        content="external calls inside transactions starve the pool",
+        project_id="alpha",
+        project_label="alpha-project",
+    )
+    local = memory.remember(
+        temp_db,
+        kind="fact",
+        title="connection pool starvation",
+        content="external calls inside transactions starve the pool",
+        project_id="beta",
+    )
+
+    results = memory.recall(
+        temp_db,
+        query="connection pool starvation external calls",
+        project_id="beta",
+        k=5,
+        include_other_projects=True,
+    )
+    uuids = [r["uuid"] for r in results]
+    assert local["uuid"] in uuids
+    # local must outrank the cross-project copy
+    local_idx = uuids.index(local["uuid"])
+    cross = next(r for r in results if r["cross_project"])
+    cross_idx = uuids.index(cross["uuid"])
+    assert local_idx < cross_idx
+
+
+def test_local_results_have_cross_project_false(temp_db, fake_embed, clock):
+    m = memory.remember(
+        temp_db,
+        kind="fact",
+        title="local memory",
+        content="lives in this project only",
+        project_id="p1",
+    )
+    results = memory.recall(temp_db, query="local memory", project_id="p1", k=5)
+    hit = next(r for r in results if r["uuid"] == m["uuid"])
+    assert hit["cross_project"] is False
+    assert hit["source_project"] is None
+
+
 def test_recall_returns_empty_when_no_candidates(temp_db, fake_embed, clock):
     memory.remember(
         temp_db,
