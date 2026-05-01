@@ -51,15 +51,38 @@ Every memory must STAND ALONE semantically — no "as we discussed", no implicit
 context. Test: would this make sense to someone with zero knowledge of the \
 conversation that produced it?
 
-CALL `recall` PROACTIVELY AND BROADLY
-- Before any non-trivial task, search not just for the task's literal terms \
-but for ADJACENT CONCEPTS that might share the same shape. Working on auth? \
-Also try "session management", "state machines", "expiring resources." The \
-"click" — when an apparently unrelated insight applies — only happens if you \
-probe broadly. Multiple cheap recalls beat one narrow miss.
-- When the user proposes an approach that may have been tried before.
-- When you encounter unfamiliar conventions, file structures, or unexplained \
-constraints — there may be a memory explaining why.
+RECALL BEFORE EVERY TASK
+Treat `recall` as your FIRST move on any task involving a choice, a pattern, \
+or a problem class you might have hit before — which is MOST tasks. Skip \
+recall only for purely mechanical edits (typo fix, rename, formatting change \
+with no design content). Recall is cheap; missing a relevant insight is not.
+
+THE PROCEDURE — every task:
+
+1. LOCAL RECALL FIRST. Query with the literal task vocabulary AND adjacent \
+concepts. Working on auth? Also try "session management", "state machines", \
+"expiring resources." The "click" — when an apparently unrelated insight \
+applies — only happens if you probe beyond the surface. Multiple cheap \
+recalls beat one narrow miss.
+
+2. IF LOCAL RECALL RETURNS NOTHING USEFUL (zero results, or results that \
+don't materially inform your next step), RETRY with \
+`include_other_projects: true`. This is especially valuable when the project \
+is new, when the problem is generalizable (architecture, tooling, \
+conventions, library gotchas), or when the user proposes an approach that \
+might have been tried elsewhere.
+
+3. INTEGRATE WHAT YOU FIND BEFORE ACTING:
+- Local memories: apply directly. Briefly mention you found prior context so \
+the user knows your reply is informed by it.
+- Cross-project memories: surface their `source_project` explicitly and ASK \
+before applying (see CROSS-PROJECT RECALL section for the full protocol).
+
+4. PROCEED WITH IMPROVED CONTEXT. Recall is not a ceremony — the point is to \
+start the task from a better baseline, not to query and then ignore. \
+Additional triggers worth a recall call mid-task: an unfamiliar convention, \
+file structure, or unexplained constraint may have a memory explaining why; \
+the user proposing an approach that may have been tried before.
 
 CALL `remember` AS DELIBERATE SYNTHESIS, NOT REACTIVE CHECKBOX
 Don't trigger `remember` mechanically on every event matching a kind. At \
@@ -221,17 +244,22 @@ def recall(
     filters: dict[str, Any] | None = None,
     include_other_projects: bool = False,
 ) -> list[dict]:
-    """Search project memories. Call BEFORE tackling work — and BROADLY.
+    """Search project memories. Call as your FIRST move on any task involving
+    a choice, pattern, or familiar problem class — which is most tasks. Skip
+    only for purely mechanical edits. Recall is not a ceremony; integrate
+    findings into your approach before acting.
 
-    The most valuable hits often come from probing ADJACENT CONCEPTS, not
-    the literal task. Working on auth? Also try "session management",
-    "expiring resources", "state machines." The "click" — when an apparently
-    unrelated insight applies — only happens if you query beyond the surface.
-    Multiple cheap recalls beat one narrow miss; if the first query returns
-    nothing useful, try a different framing of the underlying problem.
+    The standard procedure (see LODESTONE_INSTRUCTIONS for full version):
+    1. Local recall first. Probe ADJACENT CONCEPTS, not just literal task
+       terms ("auth" → also try "session management", "state machines").
+    2. If local returns nothing useful, retry with
+       `include_other_projects: true` — especially for new projects or
+       generalizable problems.
+    3. Integrate what you find before acting; don't query then ignore.
 
     Hybrid retrieval (semantic + keyword), so paraphrased queries work —
     describe the underlying problem in natural language, not the syntax.
+    Multiple cheap recalls beat one narrow miss.
 
     CROSS-PROJECT MODE: set `include_other_projects: true` to also search
     memories from other projects this user has worked on. Results from other
