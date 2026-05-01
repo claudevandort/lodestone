@@ -69,6 +69,31 @@ ask: "what is the durable lesson worth carrying out of this conversation?" \
 Not every conversation produces one — that's fine. Quality of insight beats \
 frequency of capture.
 
+DUAL-WRITE WITH CLAUDE CODE'S AUTO-MEMORY
+Claude Code maintains its own per-session, file-based memory at \
+~/.claude/projects/<project>/memory/. Those files are auto-loaded into \
+context at session start for THIS project — that's how Claude Code surfaces \
+memories at boot. Lodestone is the SEARCHABLE, CROSS-SESSION, CROSS-TEAMMATE \
+index over the same kind of knowledge.
+
+The two systems are complementary, NOT alternative. A memory only in \
+auto-memory is invisible to: future Claude instances working on related \
+projects, human teammates working on the same project from a different \
+machine, and yourself in three months when a different cwd or session is \
+loaded. The auto-memory file is the readable session-boot copy; the lodestone \
+entry is what makes the same insight findable across all of those.
+
+PROCEDURE: for EACH memory file you write or update under auto-memory, also \
+call `remember` (or `update_memory`) with the same insight — one lodestone \
+call per file. The schemas DIFFER: auto-memory's frontmatter `name` maps to \
+lodestone's `title`, `description` to `content`, and `type` to `kind`. \
+`title` and `content` are REQUIRED; `confidence` is a number 0..1 (not a word \
+like "high"). See the `remember` tool description for the full mapping.
+
+If a `remember` call fails validation, FIX the args and retry — do not \
+abandon the dual-write because the first call errored, and do not skip \
+remaining files. Both writes are required for a memory to be team-shared.
+
 Use the kinds:
 - decision: architecture, dependencies, tradeoffs ("chose X over Y because Z")
 - attempt: things tried with their outcome (always set `outcome`); content \
@@ -97,12 +122,30 @@ def remember(
     tags: list[str] | None = None,
     context: dict[str, Any] | None = None,
     outcome: str | None = None,
-    confidence: float = 0.7,
+    confidence: float | str = 0.7,
     links: list[dict[str, str]] | None = None,
 ) -> dict:
     """Store an INSIGHT, not a transcript. The reader is a future Claude or
     teammate who has zero context from this conversation — they must be able
     to act on the memory cold.
+
+    DUAL-WRITE: if you also wrote a memory file to Claude Code's auto-memory
+    directory (~/.claude/projects/<project>/memory/), you MUST also call this
+    tool with the same insight. Auto-memory is loaded at session start;
+    lodestone is what makes the same insight findable across sessions, related
+    projects, and human teammates. Both writes are required for a memory to
+    be team-shared.
+
+    MAPPING from auto-memory's `.md` frontmatter to this tool's args (the
+    field names DIFFER):
+      auto-memory `name`        →  this tool's `title`     (one-line lesson)
+      auto-memory `description` →  this tool's `content`   (full insight body —
+                                       use the file's body text, not just
+                                       the short description line)
+      auto-memory `type`        →  this tool's `kind`
+                                       (feedback → preference,
+                                        project  → fact,
+                                        otherwise pick from the kind list)
 
     Phrase content as "in situation X, approach Y has property Z" rather than
     "I did X." Compare:
@@ -110,21 +153,26 @@ def remember(
       GOOD: "ORM swaps requiring a migration-history rewrite usually fail
              under heavy alembic+Django coupling; prefer the asyncio-bridge
              escape hatch"
-    The good version teaches a class of situation, not just one event.
 
     Call as deliberate synthesis at natural reflection points (decision made,
     attempt resolved, gotcha hit, preference expressed, end of substantial
     task) — not as a reactive checkbox. If a near-duplicate exists, prefer
     `update_memory` or `supersede_with` over creating a sibling.
 
-    kind: attempt | decision | gotcha | preference | fact | question
-    outcome (set for kind='attempt'): worked | failed | partial | unknown
-    title: scannable, <=80 chars, encodes the LESSON not the event
-    content: standalone insight; explains WHY and WHEN it applies
-    tags: cross-cutting concerns for filtering (e.g. ["fts5","schema"])
-    context: structured pins, e.g. {"files":[...],"commit_sha":"...","branch":"..."}
-    confidence: 0..1 — lower for speculative, higher for verified
-    links: [{to_uuid, kind: supersedes|related|contradicts|caused_by}]
+    REQUIRED args: kind, title, content. If a call fails validation
+    (e.g. missing title), FIX the args and retry — do not give up after one
+    error, especially when mirroring multiple auto-memory files.
+
+    kind:       attempt | decision | gotcha | preference | fact | question
+    outcome:    set for kind='attempt' — worked | failed | partial | unknown
+    title:      REQUIRED — scannable, <=80 chars, encodes the LESSON
+    content:    REQUIRED — standalone insight; explains WHY and WHEN it applies
+    tags:       cross-cutting filters, e.g. ["fts5", "schema"]
+    context:    structured pins, e.g. {"files":[...], "commit_sha":"..."}
+    confidence: number 0..1 (NOT a word). 0.95 = verified by test/source,
+                0.7 = default, 0.3 = speculative. Strings "high"/"medium"/"low"
+                are coerced as a fallback but a number is preferred.
+    links:      [{to_uuid, kind: supersedes|related|contradicts|caused_by}]
     """
     return memory.remember(
         _conn(ctx),

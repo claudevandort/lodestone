@@ -12,6 +12,27 @@ VALID_KINDS = {"attempt", "decision", "gotcha", "preference", "fact", "question"
 VALID_OUTCOMES = {"worked", "failed", "partial", "unknown"}
 VALID_LINK_KINDS = {"supersedes", "related", "contradicts", "caused_by"}
 
+# Natural-language confidence terms callers sometimes pass instead of a float.
+# Coerced to numeric so a string slip ("high") is forgiving rather than fatal —
+# observed in practice when Claude maps from auto-memory's loose vocabulary.
+_CONFIDENCE_WORDS = {"high": 0.9, "medium": 0.5, "med": 0.5, "low": 0.2}
+
+
+def _coerce_confidence(value) -> float:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            mapped = _CONFIDENCE_WORDS.get(value.strip().lower())
+            if mapped is not None:
+                return mapped
+    raise ValueError(
+        f"confidence must be a number 0..1 or one of "
+        f"{sorted(_CONFIDENCE_WORDS)}; got {value!r}"
+    )
+
 
 def _now() -> int:
     return int(time.time())
@@ -40,6 +61,7 @@ def remember(
         outcome = "unknown"
     if outcome is not None and outcome not in VALID_OUTCOMES:
         raise ValueError(f"invalid outcome: {outcome}")
+    confidence = _coerce_confidence(confidence)
 
     pid = project_id or derive_project_id()[0]
     uid = str(uuidlib.uuid4())

@@ -54,6 +54,35 @@ def test_invalid_outcome_raises(temp_db, fake_embed, clock):
         )
 
 
+# ---- confidence coercion (forgives string slips from auto-memory mapping) ----
+
+def test_confidence_word_high_is_coerced(temp_db, fake_embed, clock):
+    """Observed in dogfood: Claude sometimes passes 'high' instead of a float."""
+    result = memory.remember(
+        temp_db, kind="fact", title="t", content="c",
+        confidence="high", project_id="p1",
+    )
+    fetched = memory.get(temp_db, uuid=result["uuid"])
+    assert fetched["confidence"] == 0.9
+
+
+def test_confidence_numeric_string_is_coerced(temp_db, fake_embed, clock):
+    result = memory.remember(
+        temp_db, kind="fact", title="t", content="c",
+        confidence="0.85", project_id="p1",
+    )
+    fetched = memory.get(temp_db, uuid=result["uuid"])
+    assert fetched["confidence"] == 0.85
+
+
+def test_confidence_unknown_word_raises(temp_db, fake_embed, clock):
+    with pytest.raises(ValueError, match="confidence must be"):
+        memory.remember(
+            temp_db, kind="fact", title="t", content="c",
+            confidence="extremely-confident", project_id="p1",
+        )
+
+
 # ---- recall: relevance ----
 
 def test_recall_surfaces_semantically_similar(temp_db, fake_embed, clock):
