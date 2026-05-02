@@ -116,6 +116,40 @@ def test_update_rejects_invalid_kind_in_patch(temp_db, fake_embed, clock):
         memory.update(temp_db, uuid=m["uuid"], patch={"kind": "bogus"})
 
 
+def test_open_db_handles_old_db_without_migration_columns(tmp_path, fake_embed):
+    """Regression: opening an existing DB whose `memories` table predates a
+    migration-added column (e.g. source_file) must not crash on schema.sql's
+    index re-creation. Caught when the plugin tried to open the user's
+    existing ~/.lodestone/memory.db post-Feature-1.
+    """
+    from lodestone_mcp.db import open_db
+    db_path = tmp_path / "old.db"
+
+    # Bootstrap a current-schema DB, then strip migration-added columns to
+    # simulate a DB created before those migrations existed.
+    conn = open_db(db_path)
+    conn.execute("DROP INDEX IF EXISTS idx_mem_source_file")
+    conn.execute("ALTER TABLE memories DROP COLUMN source_file")
+    conn.execute("ALTER TABLE memories DROP COLUMN project_label")
+    conn.commit()
+    conn.close()
+
+    # Re-open: must not raise. The bug was that schema.sql's
+    # `CREATE INDEX ... source_file` ran BEFORE _migrate() added the column.
+    conn = open_db(db_path)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)")}
+    assert "source_file" in cols, "migration didn't restore source_file"
+    assert "project_label" in cols, "migration didn't restore project_label"
+    indexes = {
+        row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='index' AND tbl_name='memories'"
+        )
+    }
+    assert "idx_mem_source_file" in indexes, "migration didn't restore the index"
+    conn.close()
+
+
 # ---- recall: relevance ----
 
 def test_recall_surfaces_semantically_similar(temp_db, fake_embed, clock):

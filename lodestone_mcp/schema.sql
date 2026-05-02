@@ -25,8 +25,9 @@ CREATE INDEX IF NOT EXISTS idx_mem_project_kind
   ON memories(project_id, kind) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_mem_recent
   ON memories(project_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_mem_source_file
-  ON memories(source_file) WHERE source_file IS NOT NULL AND deleted_at IS NULL;
+-- idx_mem_source_file lives in db._migrate() instead — it depends on a
+-- column added by migration, so creating it here would fail on existing
+-- DBs whose memories table predates the source_file column.
 
 CREATE TABLE IF NOT EXISTS tags (
   id   INTEGER PRIMARY KEY,

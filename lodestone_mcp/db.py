@@ -50,7 +50,11 @@ def _migrate(conn) -> None:
         conn.execute("ALTER TABLE memories ADD COLUMN project_label TEXT")
     if "source_file" not in cols:
         conn.execute("ALTER TABLE memories ADD COLUMN source_file TEXT")
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mem_source_file "
-            "ON memories(source_file) WHERE source_file IS NOT NULL AND deleted_at IS NULL"
-        )
+
+    # Indexes that reference migration-added columns live here (not in
+    # schema.sql) so they're created AFTER the column exists. Idempotent
+    # via CREATE INDEX IF NOT EXISTS — runs harmlessly on every open.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_mem_source_file "
+        "ON memories(source_file) WHERE source_file IS NOT NULL AND deleted_at IS NULL"
+    )
