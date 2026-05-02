@@ -20,12 +20,26 @@ HOOKS_CONFIG = REPO / "hooks" / "hooks.json"
 CURATOR_AGENT = REPO / "agents" / "lodestone-curator.md"
 CAPTURE_COMMAND = REPO / "commands" / "capture.md"
 
-# Source of truth for valid lodestone tool names — derived from the actual
-# server registration so this test fails if a tool is renamed/removed.
+# Source of truth for valid lodestone tool names. Returns BOTH naming forms
+# the curator might see depending on how lodestone is installed:
+#   - global MCP registration (dev/eval):  mcp__lodestone__<tool>
+#   - plugin install (production):         mcp__plugin_<plugin>_<server>__<tool>
+# The curator's frontmatter must declare both forms to work in both contexts.
 def _live_lodestone_tool_names() -> set[str]:
     import asyncio
     from lodestone_mcp.server import mcp
-    return {f"mcp__lodestone__{t.name}" for t in asyncio.run(mcp.list_tools())}
+    base = [t.name for t in asyncio.run(mcp.list_tools())]
+    manifest = json.loads(PLUGIN_MANIFEST.read_text())
+    plugin_name = manifest["name"]
+    server_names = list(manifest.get("mcpServers", {}).keys())
+    forms = {f"mcp__lodestone__{n}" for n in base}
+    for server_name in server_names:
+        forms |= {f"mcp__plugin_{plugin_name}_{server_name}__{n}" for n in base}
+    return forms
+
+
+def _is_lodestone_tool_name(name: str) -> bool:
+    return name.startswith("mcp__lodestone__") or name.startswith("mcp__plugin_")
 
 
 # ---- plugin.json ----
@@ -136,10 +150,21 @@ def test_curator_agent_has_required_frontmatter_fields():
 def test_curator_agent_only_references_real_lodestone_tools():
     fm = _parse_frontmatter(CURATOR_AGENT.read_text())
     declared = [t.strip() for t in fm["tools"].split(",")]
-    declared_lodestone = {t for t in declared if t.startswith("mcp__lodestone__")}
+    declared_lodestone = {t for t in declared if _is_lodestone_tool_name(t)}
     real_tools = _live_lodestone_tool_names()
     extras = declared_lodestone - real_tools
     assert not extras, f"agent references non-existent lodestone tools: {extras}"
+
+
+def test_curator_agent_declares_both_global_and_plugin_prefixes():
+    """Curator must work in dev (global MCP config) AND prod (plugin install).
+    Tool names differ between modes — declare both."""
+    fm = _parse_frontmatter(CURATOR_AGENT.read_text())
+    declared = {t.strip() for t in fm["tools"].split(",")}
+    has_global = any(t.startswith("mcp__lodestone__") for t in declared)
+    has_plugin = any(t.startswith("mcp__plugin_") for t in declared)
+    assert has_global, "missing mcp__lodestone__* declarations (needed for dev/eval)"
+    assert has_plugin, "missing mcp__plugin_* declarations (needed for plugin install)"
 
 
 def test_curator_agent_does_not_grant_forget():
@@ -147,7 +172,9 @@ def test_curator_agent_does_not_grant_forget():
     fm = _parse_frontmatter(CURATOR_AGENT.read_text())
     declared = [t.strip() for t in fm["tools"].split(",")]
     assert "mcp__lodestone__forget" not in declared, \
-        "v1 curator should not be able to forget; revisit per PRD §10 Q2"
+        "v1 curator should not be able to forget (global form); revisit per PRD §10 Q2"
+    assert "mcp__plugin_lodestone_lodestone__forget" not in declared, \
+        "v1 curator should not be able to forget (plugin form); revisit per PRD §10 Q2"
 
 
 def test_curator_agent_body_is_substantive():
