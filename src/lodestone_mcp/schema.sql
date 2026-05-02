@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS memory_links (
   from_id INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
   to_id   INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
   kind    TEXT NOT NULL CHECK (kind IN (
-            'supersedes','related','contradicts','caused_by'
+            'supersedes','related','contradicts','caused_by',
+            'co_recalled_with'
           )),
   PRIMARY KEY (from_id, to_id, kind)
 );

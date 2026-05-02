@@ -15,22 +15,43 @@ load_dotenv(Path.home() / ".lodestone" / ".env")
 
 @asynccontextmanager
 async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, Any]]:
-    """Open the DB once per server lifetime, close on shutdown.
+    """Open the DB once per server lifetime, close on shutdown. Also seed an
+    in-memory recall ledger so `remember` can auto-attach `co_recalled_with`
+    links to whatever the most recent recall surfaced.
 
-    Tools reach the connection via ctx.request_context.lifespan_context.
-    Letting FastMCP own the lifecycle keeps the connection out of module state,
-    makes shutdown deterministic, and means tests can inject a different conn
-    by overriding lifespan rather than monkey-patching a global.
+    Tools reach state via ctx.request_context.lifespan_context. Letting
+    FastMCP own the lifecycle keeps it out of module globals, makes shutdown
+    deterministic, and lets tests inject by overriding lifespan.
     """
     conn = db.open_db()
+    state = {
+        "conn": conn,
+        # Bounded list of (timestamp, [memory_uuids returned]) for the most
+        # recent recall calls in this session. `remember` reads the latest
+        # entry to auto-attach co_recalled_with links — so the link graph
+        # records "what was in context when this insight was captured"
+        # without depending on Claude to remember to wire links manually.
+        "recall_ledger": [],
+    }
     try:
-        yield {"conn": conn}
+        yield state
     finally:
         conn.close()
 
 
 def _conn(ctx: Context):
     return ctx.request_context.lifespan_context["conn"]
+
+
+def _recall_ledger(ctx: Context) -> list:
+    return ctx.request_context.lifespan_context["recall_ledger"]
+
+
+# Cap the auto-attached co-occurrence links per remember call. Without a cap,
+# a recall returning k=5 could add 5 links to every subsequent remember; over
+# a session that produces a dense graph that's noisy to traverse.
+_MAX_AUTO_CO_LINKS = 5
+_RECALL_LEDGER_MAX = 20
 
 
 LODESTONE_INSTRUCTIONS = """\
@@ -221,8 +242,23 @@ def remember(
     confidence: number 0..1 (NOT a word). 0.95 = verified by test/source,
                 0.7 = default, 0.3 = speculative. Strings "high"/"medium"/"low"
                 are coerced as a fallback but a number is preferred.
-    links:      [{to_uuid, kind: supersedes|related|contradicts|caused_by}]
+    links:      DELIBERATE semantic edges only — [{to_uuid, kind:
+                supersedes | related | contradicts | caused_by}]. Use
+                `related` when this insight is built on or adapts another
+                memory (especially when wholesale-adopting a pattern from a
+                cross-project hit). Do NOT pass `co_recalled_with` here —
+                the server auto-attaches that kind to whatever the most
+                recent recall surfaced, building a co-occurrence audit trail
+                without requiring you to wire it manually.
     """
+    # Auto-attach co_recalled_with edges from the most recent recall in this
+    # session. These coexist with any explicit links Claude passed — they have
+    # different semantics: co_recalled_with means "was in the context when
+    # this was captured", while related/supersedes/etc. are deliberate
+    # semantic claims.
+    auto_links = _build_co_recall_links(ctx)
+    merged_links = (links or []) + auto_links
+
     return memory.remember(
         _conn(ctx),
         kind=kind,
@@ -232,8 +268,30 @@ def remember(
         context=context,
         outcome=outcome,
         confidence=confidence,
-        links=links,
+        links=merged_links or None,
     )
+
+
+def _build_co_recall_links_from_ledger(
+    ledger: list, max_links: int = _MAX_AUTO_CO_LINKS
+) -> list[dict[str, str]]:
+    """Pure helper: read the most recent recall's results from a ledger and
+    produce co_recalled_with link entries. Empty ledger → empty list.
+
+    Caller merges with any explicit links; DB INSERT OR IGNORE handles
+    duplicate (from_id, to_id, 'co_recalled_with') triples.
+    """
+    if not ledger:
+        return []
+    _, recent_uuids = ledger[-1]
+    return [
+        {"to_uuid": uuid, "kind": "co_recalled_with"}
+        for uuid in recent_uuids[:max_links]
+    ]
+
+
+def _build_co_recall_links(ctx: Context) -> list[dict[str, str]]:
+    return _build_co_recall_links_from_ledger(_recall_ledger(ctx))
 
 
 @mcp.tool()
@@ -280,13 +338,24 @@ def recall(
 
     filters: {kind, tags, outcome, min_confidence, since, include_superseded}
     """
-    return memory.recall(
+    results = memory.recall(
         _conn(ctx),
         query=query,
         k=k,
         filters=filters,
         include_other_projects=include_other_projects,
     )
+
+    # Log to the per-session ledger so a subsequent `remember` can auto-attach
+    # co_recalled_with links to whatever surfaced here. Bounded to the most
+    # recent N entries to prevent unbounded growth in long sessions.
+    import time as _time
+    ledger = _recall_ledger(ctx)
+    ledger.append((_time.time(), [r["uuid"] for r in results]))
+    if len(ledger) > _RECALL_LEDGER_MAX:
+        del ledger[: len(ledger) - _RECALL_LEDGER_MAX]
+
+    return results
 
 
 @mcp.tool()

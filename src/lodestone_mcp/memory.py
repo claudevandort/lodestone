@@ -10,7 +10,10 @@ from .project import derive_project_id
 
 VALID_KINDS = {"attempt", "decision", "gotcha", "preference", "fact", "question"}
 VALID_OUTCOMES = {"worked", "failed", "partial", "unknown"}
-VALID_LINK_KINDS = {"supersedes", "related", "contradicts", "caused_by"}
+VALID_LINK_KINDS = {
+    "supersedes", "related", "contradicts", "caused_by",
+    "co_recalled_with",
+}
 
 # Natural-language confidence terms callers sometimes pass instead of a float.
 # Coerced to numeric so a string slip ("high") is forgiving rather than fatal —

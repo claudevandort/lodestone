@@ -48,3 +48,24 @@ def _migrate(conn) -> None:
     cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
     if "project_label" not in cols:
         conn.execute("ALTER TABLE memories ADD COLUMN project_label TEXT")
+
+    # memory_links CHECK constraint can't be ALTERed in SQLite. Recreate the
+    # table only if the current schema doesn't include the new link kind.
+    schema_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_links'"
+    ).fetchone()
+    if schema_row and "co_recalled_with" not in (schema_row["sql"] or ""):
+        conn.executescript("""
+            ALTER TABLE memory_links RENAME TO memory_links_old;
+            CREATE TABLE memory_links (
+              from_id INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+              to_id   INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+              kind    TEXT NOT NULL CHECK (kind IN (
+                        'supersedes','related','contradicts','caused_by',
+                        'co_recalled_with'
+                      )),
+              PRIMARY KEY (from_id, to_id, kind)
+            );
+            INSERT INTO memory_links SELECT * FROM memory_links_old;
+            DROP TABLE memory_links_old;
+        """)
