@@ -65,12 +65,14 @@ concepts. Working on auth? Also try "session management", "state machines", \
 applies — only happens if you probe beyond the surface. Multiple cheap \
 recalls beat one narrow miss.
 
-2. IF LOCAL RECALL RETURNS NOTHING USEFUL (zero results, or results that \
-don't materially inform your next step), RETRY with \
-`include_other_projects: true`. This is especially valuable when the project \
-is new, when the problem is generalizable (architecture, tooling, \
-conventions, library gotchas), or when the user proposes an approach that \
-might have been tried elsewhere.
+2. WIDEN TO CROSS-PROJECT WHEN NEEDED. The server automatically retries \
+with `include_other_projects: true` whenever local recall returns ZERO \
+results, and signals this in the response's \
+`meta.fallback_to_other_projects` field. You only need to opt in MANUALLY \
+when local returned SOME results that don't materially inform your next \
+step (a judgment call). Either way, when results contain cross-project \
+memories, follow the ASK-before-applying protocol in the CROSS-PROJECT \
+RECALL section below.
 
 3. INTEGRATE WHAT YOU FIND BEFORE ACTING:
 - Local memories: apply directly. Briefly mention you found prior context so \
@@ -261,40 +263,52 @@ def recall(
     k: int = 5,
     filters: dict[str, Any] | None = None,
     include_other_projects: bool = False,
-) -> list[dict]:
+) -> dict:
     """Search project memories. Call as your FIRST move on any task involving
     a choice, pattern, or familiar problem class — which is most tasks. Skip
     only for purely mechanical edits. Recall is not a ceremony; integrate
     findings into your approach before acting.
 
-    The standard procedure (see LODESTONE_INSTRUCTIONS for full version):
-    1. Local recall first. Probe ADJACENT CONCEPTS, not just literal task
-       terms ("auth" → also try "session management", "state machines").
-    2. If local returns nothing useful, retry with
-       `include_other_projects: true` — especially for new projects or
-       generalizable problems.
-    3. Integrate what you find before acting; don't query then ignore.
+    AUTO CROSS-PROJECT FALLBACK: when the default search (local project only)
+    returns ZERO results, the server automatically retries with cross-project
+    enabled. The response signals this in `meta.fallback_to_other_projects:
+    true` — apply the ASK-before-applying discipline below for those results.
+    You only need to opt in manually when local returned SOME results that
+    don't materially inform your next step (a judgment call recall can't
+    make for you).
 
     Hybrid retrieval (semantic + keyword), so paraphrased queries work —
     describe the underlying problem in natural language, not the syntax.
-    Multiple cheap recalls beat one narrow miss.
+    Multiple cheap recalls beat one narrow miss; probe ADJACENT CONCEPTS
+    ("auth" → also try "session management", "state machines").
 
-    CROSS-PROJECT MODE: set `include_other_projects: true` to also search
-    memories from other projects this user has worked on. Results from other
-    projects come back with `cross_project: true` and `source_project:
-    <label>`. They are reranked with a penalty so same-project results
-    outrank them at similar raw match quality — a cross-project hit means
-    the match was strong enough to overcome the penalty, so it deserves a
-    closer look.
+    CROSS-PROJECT MODE: set `include_other_projects: true` to widen the
+    search even when local has hits. Results from other projects come back
+    with `cross_project: true` and `source_project: <label>`. They are
+    reranked with a penalty so same-project results outrank them at similar
+    raw match quality — a cross-project hit means the match was strong
+    enough to overcome the penalty, so it deserves a closer look.
 
-    When you incorporate a cross-project insight, ALWAYS surface its origin
-    to the user and ASK before applying ("Memory from <source_project>
-    suggests X. Worth using here?"). Don't merge cross-project insights into
-    your answer as if they were established for the current project — they
-    are suggestions, not local conventions.
+    Whenever results contain cross-project memories (whether via fallback or
+    explicit opt-in), ALWAYS surface their origin to the user and ASK before
+    applying ("Memory from <source_project> suggests X. Worth using here?").
+    Don't merge cross-project insights into your answer as if they were
+    established for the current project — they're suggestions, not local
+    conventions.
 
-    Returns top-k re-ranked by recency × confidence × supersede × (cross-
-    project) penalty, with 1-hop link expansion.
+    Returns:
+      {
+        "results": [<memory dict>, ...],   # top-k after rerank
+        "meta": {
+          "fallback_to_other_projects": bool,  # True when auto-retry fired
+          "local_count":    int,               # rows matching THIS project
+          "returned_count": int                # len(results)
+        }
+      }
+
+    Each memory dict carries the usual fields plus `cross_project: bool` and
+    `source_project: str | None`. Reranking applies recency × confidence ×
+    supersede × cross-project penalty, with 1-hop link expansion.
 
     filters: {kind, tags, outcome, min_confidence, since, include_superseded}
     """

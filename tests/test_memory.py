@@ -104,21 +104,29 @@ def test_recall_surfaces_semantically_similar(temp_db, fake_embed, clock):
     results = memory.recall(
         temp_db, query="postgres connection pool", project_id="p1", k=2
     )
-    assert results, "expected at least one result"
-    assert results[0]["uuid"] == relevant["uuid"]
+    assert results["results"], "expected at least one result"
+    assert results["results"][0]["uuid"] == relevant["uuid"]
 
 
-def test_recall_isolates_by_project(temp_db, fake_embed, clock):
+def test_recall_isolates_by_project_when_local_has_results(temp_db, fake_embed, clock):
+    """When local has matching memories, default recall stays project-scoped
+    — no auto-fallback, no other-project memories surface."""
     memory.remember(
-        temp_db,
-        kind="fact",
+        temp_db, kind="fact",
         title="cache TTL is five minutes",
         content="redis keys expire after five minutes",
         project_id="alpha",
     )
-
+    memory.remember(
+        temp_db, kind="fact",
+        title="cache TTL is ten seconds",
+        content="redis keys expire after ten seconds",
+        project_id="beta",
+    )
     results = memory.recall(temp_db, query="cache TTL", project_id="beta", k=5)
-    assert results == []
+    assert results["meta"]["fallback_to_other_projects"] is False
+    assert results["meta"]["local_count"] >= 1
+    assert all(r["cross_project"] is False for r in results["results"])
 
 
 # ---- cross-project recall ----
@@ -141,25 +149,67 @@ def test_recall_with_include_other_projects_surfaces_them_tagged(temp_db, fake_e
         k=5,
         include_other_projects=True,
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert other["uuid"] in uuids
 
-    hit = next(r for r in results if r["uuid"] == other["uuid"])
+    hit = next(r for r in results["results"] if r["uuid"] == other["uuid"])
     assert hit["cross_project"] is True
     assert hit["source_project"] == "alpha-project"
 
 
-def test_recall_default_still_excludes_other_projects(temp_db, fake_embed, clock):
-    """Sanity: leaving include_other_projects unset preserves prior behavior."""
-    memory.remember(
-        temp_db,
-        kind="fact",
+def test_recall_auto_retries_cross_project_when_local_empty(temp_db, fake_embed, clock):
+    """When local recall returns zero hits, server auto-retries with
+    cross-project enabled and signals via meta.fallback_to_other_projects."""
+    other = memory.remember(
+        temp_db, kind="fact",
         title="cache TTL is five minutes",
         content="redis keys expire after five minutes",
         project_id="alpha",
+        project_label="alpha-project",
     )
     results = memory.recall(temp_db, query="cache TTL", project_id="beta", k=5)
-    assert results == []
+    assert results["meta"]["fallback_to_other_projects"] is True
+    assert results["meta"]["local_count"] == 0
+    uuids = [r["uuid"] for r in results["results"]]
+    assert other["uuid"] in uuids
+    hit = next(r for r in results["results"] if r["uuid"] == other["uuid"])
+    assert hit["cross_project"] is True
+    assert hit["source_project"] == "alpha-project"
+
+
+def test_recall_meta_no_fallback_on_explicit_include_other_projects(temp_db, fake_embed, clock):
+    """Explicit include_other_projects=True is the caller's choice, NOT a
+    fallback — meta should reflect that even when local was empty."""
+    memory.remember(
+        temp_db, kind="fact",
+        title="cache TTL is five minutes",
+        content="redis keys expire after five minutes",
+        project_id="alpha",
+        project_label="alpha-project",
+    )
+    results = memory.recall(
+        temp_db, query="cache TTL", project_id="beta", k=5,
+        include_other_projects=True,
+    )
+    assert results["meta"]["fallback_to_other_projects"] is False
+    assert results["meta"]["local_count"] == 0
+    assert results["meta"]["returned_count"] >= 1
+
+
+def test_recall_meta_returned_count_matches_results_length(temp_db, fake_embed, clock):
+    """meta.returned_count is the actual length of results (after top-k)."""
+    for i in range(5):
+        memory.remember(
+            temp_db, kind="fact",
+            title=f"alpha thing {i}",
+            content=f"alpha thing {i} content",
+            project_id="p1",
+        )
+    results = memory.recall(temp_db, query="alpha thing", project_id="p1", k=3)
+    assert results["meta"]["returned_count"] == len(results["results"])
+    assert results["meta"]["returned_count"] <= 3
+    assert results["meta"]["fallback_to_other_projects"] is False
+    assert results["meta"]["local_count"] >= 3
 
 
 def test_cross_project_results_outranked_by_local_at_equal_match(temp_db, fake_embed, clock):
@@ -188,11 +238,11 @@ def test_cross_project_results_outranked_by_local_at_equal_match(temp_db, fake_e
         k=5,
         include_other_projects=True,
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert local["uuid"] in uuids
     # local must outrank the cross-project copy
     local_idx = uuids.index(local["uuid"])
-    cross = next(r for r in results if r["cross_project"])
+    cross = next(r for r in results["results"] if r["cross_project"])
     cross_idx = uuids.index(cross["uuid"])
     assert local_idx < cross_idx
 
@@ -206,7 +256,7 @@ def test_local_results_have_cross_project_false(temp_db, fake_embed, clock):
         project_id="p1",
     )
     results = memory.recall(temp_db, query="local memory", project_id="p1", k=5)
-    hit = next(r for r in results if r["uuid"] == m["uuid"])
+    hit = next(r for r in results["results"] if r["uuid"] == m["uuid"])
     assert hit["cross_project"] is False
     assert hit["source_project"] is None
 
@@ -223,7 +273,7 @@ def test_recall_returns_empty_when_no_candidates(temp_db, fake_embed, clock):
         temp_db, query="something entirely different banana", project_id="p1", k=5
     )
     # No vector neighbors with overlap, no FTS match → empty
-    assert results == [] or all(r["uuid"] != "completely unrelated" for r in results)
+    assert results["results"] == [] or all(r["uuid"] != "completely unrelated" for r in results["results"])
 
 
 # ---- recall: ranking ----
@@ -249,7 +299,7 @@ def test_supersede_penalty_lowers_rank(temp_db, fake_embed, clock):
     results = memory.recall(
         temp_db, query="redis caching", project_id="p1", k=5
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert old["uuid"] not in uuids
     assert new["uuid"] in uuids
 
@@ -261,7 +311,7 @@ def test_supersede_penalty_lowers_rank(temp_db, fake_embed, clock):
         k=5,
         filters={"include_superseded": True},
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert new["uuid"] in uuids and old["uuid"] in uuids
     assert uuids.index(new["uuid"]) < uuids.index(old["uuid"])
 
@@ -287,7 +337,7 @@ def test_recency_decay_lowers_rank(temp_db, fake_embed, clock):
     results = memory.recall(
         temp_db, query="kafka broker single node", project_id="p1", k=5
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert uuids.index(new["uuid"]) < uuids.index(old["uuid"])
 
 
@@ -312,7 +362,7 @@ def test_confidence_multiplier(temp_db, fake_embed, clock):
     results = memory.recall(
         temp_db, query="auth jwt expiry", project_id="p1", k=5
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert uuids.index(high["uuid"]) < uuids.index(low["uuid"])
 
 
@@ -341,8 +391,8 @@ def test_filter_by_kind(temp_db, fake_embed, clock):
         k=5,
         filters={"kind": ["gotcha"]},
     )
-    assert all(r["kind"] == "gotcha" for r in results)
-    assert gotcha["uuid"] in [r["uuid"] for r in results]
+    assert all(r["kind"] == "gotcha" for r in results["results"])
+    assert gotcha["uuid"] in [r["uuid"] for r in results["results"]]
 
 
 def test_filter_by_min_confidence(temp_db, fake_embed, clock):
@@ -370,9 +420,9 @@ def test_filter_by_min_confidence(temp_db, fake_embed, clock):
         k=5,
         filters={"min_confidence": 0.5},
     )
-    uuids = [r["uuid"] for r in results]
+    uuids = [r["uuid"] for r in results["results"]]
     assert high["uuid"] in uuids
-    assert len(results) == 1
+    assert len(results["results"]) == 1
 
 
 # ---- update / forget ----
@@ -392,7 +442,7 @@ def test_forget_soft_deletes_and_stores_reason(temp_db, fake_embed, clock):
     results = memory.recall(
         temp_db, query="something to forget ephemeral", project_id="p1", k=5
     )
-    assert m["uuid"] not in [r["uuid"] for r in results]
+    assert m["uuid"] not in [r["uuid"] for r in results["results"]]
 
     row = temp_db.execute(
         "SELECT context, deleted_at FROM memories WHERE uuid = ?", (m["uuid"],)
@@ -419,7 +469,7 @@ def test_update_re_embeds_on_content_change(temp_db, fake_embed, clock):
     )
 
     before = memory.recall(temp_db, query="apples", project_id="p1", k=2)
-    before_uuids = [r["uuid"] for r in before]
+    before_uuids = [r["uuid"] for r in before["results"]]
     assert before_uuids.index(apples["uuid"]) < before_uuids.index(bananas["uuid"])
 
     memory.update(
@@ -430,7 +480,7 @@ def test_update_re_embeds_on_content_change(temp_db, fake_embed, clock):
 
     # New content surfaces (proves both FTS and embedding were rewritten)
     after = memory.recall(temp_db, query="cherries", project_id="p1", k=2)
-    assert after[0]["uuid"] == apples["uuid"]
+    assert after["results"][0]["uuid"] == apples["uuid"]
 
 
 def test_update_verify_sets_verified_at(temp_db, fake_embed, clock):

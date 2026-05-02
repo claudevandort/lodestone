@@ -102,7 +102,25 @@ def recall(
     filters: dict[str, Any] | None = None,
     project_id: str | None = None,
     include_other_projects: bool = False,
-) -> list[dict]:
+) -> dict:
+    """Hybrid semantic+FTS recall, scoped to the current project by default.
+
+    When called with the default `include_other_projects=False` and the
+    local-only result set is empty, automatically retries once with
+    cross-project enabled. The response's `meta.fallback_to_other_projects`
+    signals when this happened so callers can apply the
+    ASK-before-applying discipline appropriate for cross-project results.
+
+    Returns:
+        {
+            "results": [<memory dict>, ...],
+            "meta": {
+                "fallback_to_other_projects": bool,
+                "local_count":     int,  # rows matching CURRENT project after filters
+                "returned_count":  int,  # len(results) after rerank + top-k
+            }
+        }
+    """
     pid = project_id or derive_project_id()[0]
     filters = filters or {}
     pool = max(k * 4, 20)
@@ -110,12 +128,39 @@ def recall(
     vec_ids, fts_ids = _retrieve_candidates(conn, query, pool)
     base_scores = ranking.fuse_rrf(vec_ids, fts_ids)
     if not base_scores:
-        return []
+        return _empty_recall_response(local_count=0, fallback_used=False)
 
-    rows = _fetch_filtered(
+    # Always probe local first so we know the local_count (used both to
+    # decide on the auto-retry and to surface in meta regardless of mode).
+    local_rows = _fetch_filtered(
         conn, list(base_scores.keys()), pid, filters,
-        include_other_projects=include_other_projects,
+        include_other_projects=False,
     )
+    local_count = len(local_rows)
+
+    if include_other_projects:
+        # Caller explicitly asked for cross-project; not a fallback.
+        rows = _fetch_filtered(
+            conn, list(base_scores.keys()), pid, filters,
+            include_other_projects=True,
+        )
+        fallback_used = False
+    elif local_count > 0:
+        # Local has hits; use them.
+        rows = local_rows
+        fallback_used = False
+    else:
+        # Local empty — auto-retry across projects so the caller doesn't have
+        # to re-issue the call. Signaled in meta.fallback_to_other_projects.
+        rows = _fetch_filtered(
+            conn, list(base_scores.keys()), pid, filters,
+            include_other_projects=True,
+        )
+        fallback_used = True
+
+    if not rows:
+        return _empty_recall_response(local_count=local_count, fallback_used=fallback_used)
+
     ranked = ranking.apply_postretrieval_factors(
         rows, base_scores, _now(),
         current_project_id=pid,
@@ -128,10 +173,29 @@ def recall(
         )
         conn.commit()
 
-    return [
+    serialized = [
         _serialize(conn, row, score=score, expand_links=True, current_project_id=pid)
         for score, row in ranked
     ]
+    return {
+        "results": serialized,
+        "meta": {
+            "fallback_to_other_projects": fallback_used,
+            "local_count": local_count,
+            "returned_count": len(serialized),
+        },
+    }
+
+
+def _empty_recall_response(*, local_count: int, fallback_used: bool) -> dict:
+    return {
+        "results": [],
+        "meta": {
+            "fallback_to_other_projects": fallback_used,
+            "local_count": local_count,
+            "returned_count": 0,
+        },
+    }
 
 
 def _retrieve_candidates(
