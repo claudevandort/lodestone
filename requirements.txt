@@ -1,0 +1,9 @@
+# Runtime deps for the lodestone plugin's MCP server.
+# Installed by the SessionStart hook (see hooks/hooks.json) into
+# ${CLAUDE_PLUGIN_DATA}/site-packages on first session and whenever this
+# file changes. Kept in sync with pyproject.toml [project.dependencies].
+mcp>=1.2
+sqlite-vec>=0.1.6
+pysqlite3-binary>=0.5; sys_platform != 'win32'
+voyageai>=0.3
+python-dotenv>=1.0

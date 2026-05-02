@@ -1,0 +1,15 @@
+{
+  "name": "lodestone-mcp",
+  "description": "Single-plugin marketplace hosting the lodestone memory plugin.",
+  "plugins": [
+    {
+      "name": "lodestone",
+      "source": {
+        "source": "github",
+        "repo": "REPLACE_WITH_OWNER/lodestone-mcp"
+      },
+      "description": "Persistent project memory for Claude Code."
+    }
+  ],
+  "_status": "scaffolding only — repo URL must be set before publishing."
+}

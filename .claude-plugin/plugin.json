@@ -1,0 +1,11 @@
+{
+  "name": "lodestone",
+  "version": "0.1.0-pre",
+  "description": "Persistent project memory for Claude Code: hybrid retrieval (Voyage embeddings + sqlite-vec + FTS5) with auto-memory dual-write, cross-project recall, and a curator subagent for end-of-task capture.",
+  "author": {
+    "name": "Claude Vandort"
+  },
+  "license": "MIT",
+  "keywords": ["memory", "mcp", "rag", "embeddings", "knowledge-graph"],
+  "_status": "scaffolding only — components (mcpServers, hooks) wired in Features 1-4 per docs/PRD-001-deterministic-discipline.md"
+}
