@@ -35,8 +35,8 @@ def _conn(ctx: Context):
 
 LODESTONE_INSTRUCTIONS = """\
 Lodestone is shared, persistent memory across Claude sessions and human \
-teammates working on this project. Treat it as the team's collective notebook — \
-not as a chat scratchpad. Memories should "click" in future contexts that may \
+teammates working on this project. Treat it as the team's collective notebook \
+— not a chat scratchpad. Memories should "click" in future contexts that may \
 look unrelated on the surface.
 
 THE FORM OF A GOOD MEMORY: INSIGHTS, NOT TRANSCRIPTS
@@ -44,128 +44,85 @@ A good memory distills the transferable lesson, not the event. Compare:
 - BAD:  "we tried SQLAlchemy and it failed"
 - GOOD: "ORM swaps requiring a migration-history rewrite usually fail under \
 heavy alembic+Django coupling — prefer the asyncio-bridge escape hatch"
-The good version teaches a class of situation. Phrase content as "in situation \
-X, approach Y has property Z" rather than "I did X."
-
-Every memory must STAND ALONE semantically — no "as we discussed", no implicit \
-context. Test: would this make sense to someone with zero knowledge of the \
-conversation that produced it?
+Phrase content as "in situation X, approach Y has property Z" rather than \
+"I/we did X." Every memory must STAND ALONE — no "as we discussed", no \
+implicit context. Test: would this make sense to someone with zero knowledge \
+of the conversation that produced it?
 
 RECALL BEFORE EVERY TASK
-Treat `recall` as your FIRST move on any task involving a choice, a pattern, \
-or a problem class you might have hit before — which is MOST tasks. Skip \
-recall only for purely mechanical edits (typo fix, rename, formatting change \
-with no design content). Recall is cheap; missing a relevant insight is not.
+Treat `recall` as your FIRST move on any task involving a choice, pattern, or \
+problem class you might have hit before — which is MOST tasks. Skip only for \
+purely mechanical edits. Recall is cheap; missing a relevant insight is not.
 
-THE PROCEDURE — every task:
+Procedure:
 
-1. LOCAL RECALL FIRST. Query with the literal task vocabulary AND adjacent \
-concepts. Working on auth? Also try "session management", "state machines", \
-"expiring resources." The "click" — when an apparently unrelated insight \
-applies — only happens if you probe beyond the surface. Multiple cheap \
-recalls beat one narrow miss.
+1. Query with the literal task vocabulary AND adjacent concepts ("auth" → \
+also try "session management", "state machines", "expiring resources"). The \
+"click" — when an apparently unrelated insight applies — only happens if you \
+probe beyond the surface. Multiple cheap recalls beat one narrow miss.
 
-2. WIDEN TO CROSS-PROJECT WHEN NEEDED. The server automatically retries \
-with `include_other_projects: true` whenever local recall returns ZERO \
-results, and signals this in the response's \
-`meta.fallback_to_other_projects` field. You only need to opt in MANUALLY \
-when local returned SOME results that don't materially inform your next \
-step (a judgment call). Either way, when results contain cross-project \
-memories, follow the ASK-before-applying protocol in the CROSS-PROJECT \
-RECALL section below.
+2. The server auto-retries with cross-project when local returns ZERO results \
+and signals it via `meta.fallback_to_other_projects`. Manually opt in \
+(`include_other_projects: true`) only when local returned SOME results that \
+don't materially inform your next step.
 
-3. INTEGRATE WHAT YOU FIND BEFORE ACTING:
-- Local memories: apply directly. Briefly mention you found prior context so \
-the user knows your reply is informed by it.
-- Cross-project memories: surface their `source_project` explicitly and ASK \
-before applying (see CROSS-PROJECT RECALL section for the full protocol).
+3. Integrate findings before acting — recall is not a ceremony. Local \
+memories: apply directly, briefly mention you found prior context. \
+Cross-project memories (`cross_project: true`): follow the ASK-before-applying \
+protocol below.
 
-4. PROCEED WITH IMPROVED CONTEXT. Recall is not a ceremony — the point is to \
-start the task from a better baseline, not to query and then ignore. \
-Additional triggers worth a recall call mid-task: an unfamiliar convention, \
-file structure, or unexplained constraint may have a memory explaining why; \
-the user proposing an approach that may have been tried before.
+Mid-task, recall again whenever an unfamiliar convention, file structure, or \
+unexplained constraint may have a memory explaining why, or when the user \
+proposes an approach that may have been tried before.
 
-CALL `remember` AS DELIBERATE SYNTHESIS, NOT REACTIVE CHECKBOX
-Don't trigger `remember` mechanically on every event matching a kind. At \
-natural reflection points (a decision made, an attempt resolved, a debugging \
-revelation, a non-obvious user preference), ask: "what is the durable \
-lesson worth carrying out of this conversation?" Not every moment produces \
-one — that's fine. Quality of insight beats frequency of capture.
+CALL `remember` AS DELIBERATE SYNTHESIS
+At natural reflection points (decision made, attempt resolved, debugging \
+revelation, durable user preference), ask: "what is the durable lesson worth \
+carrying out of this conversation?" Quality of insight beats frequency of \
+capture; not every moment produces one.
 
-If you finish substantial work without having captured along the way (deep \
-in build mode, no natural pause to reflect), invoke the `lodestone-curator` \
-subagent via `Task(subagent_type="lodestone-curator", ...)` to do a \
-wrap-up review. The curator runs in its own context with a single focused \
-job — extracting and storing insights — so it doesn't suffer the same \
-task-pressure that made you skip capture in the first place. Pass it a \
-brief description of what was worked on; it handles the rest.
+If you finish substantial work without capturing along the way (deep in build \
+mode, no natural pause to reflect), invoke the `lodestone-curator` subagent \
+via `Task(subagent_type="lodestone-curator", ...)` for a wrap-up review. The \
+curator runs in its own context, free of build-pressure.
 
-AUTO-MEMORY MIRRORING (A SAFETY NET, NOT THE PRIMARY PATH)
-Claude Code maintains its own per-session, file-based memory at \
-~/.claude/projects/<project>/memory/, which is auto-loaded at session \
-start for THIS project. When the lodestone plugin is installed, a \
-PostToolUse hook mirrors auto-memory writes into lodestone's searchable \
-index — so an insight captured to auto-memory also becomes findable \
-across sessions and projects.
+Auto-memory note: when the lodestone plugin is installed, a PostToolUse hook \
+mirrors auto-memory writes (`~/.claude/projects/.../memory/*.md`) into \
+lodestone — but `remember` is still the primary capture path (faster, \
+controls more fields, works without the plugin).
 
-That's a SAFETY NET, not the primary capture path. Your primary path is \
-`remember` directly: it's faster (no file IO), it lets you control fields \
-auto-memory doesn't cover (`kind`, `tags`, `confidence`, `links`), and it \
-works in every session — not just ones where the plugin is installed. \
-When the user says something insight-worthy, call `remember` first; if \
-you also write an auto-memory file for unrelated reasons (Claude Code's \
-built-in flow), the hook keeps lodestone in sync without you needing to \
-call `remember` again for the same content.
+CROSS-PROJECT RECALL — APPLY WITH CARE
+When results contain memories with `cross_project: true` (whether from \
+auto-fallback or explicit opt-in):
 
-CROSS-PROJECT RECALL
-By default, `recall` searches only THIS project's memories. You can opt in to \
-searching across ALL projects this user has worked on by passing \
-`include_other_projects: true`. Use it when:
-- The current project is new and likely has no relevant local memories yet
-- You're tackling a generalizable problem (architecture pattern, tooling \
-choice, library gotcha, code convention) where insights from related \
-projects often apply
-- An initial same-project recall returned nothing useful AND the underlying \
-problem isn't project-specific
+1. NEVER apply silently — the other project's stack/context may differ.
+2. Explicitly mention `source_project` in your reply.
+3. ASK the user before applying. Example: "Memory from <source_project> \
+suggests X — worth applying here?"
+4. When you write a current-project memory that builds on or adapts a \
+recalled one (local or cross-project), populate `links` with ONE `related` \
+entry PER source memory drawn from — not a summary link, not zero. Links \
+are metadata on the memory you're already writing; don't create extra \
+memories just for provenance.
 
-Do NOT default-on cross-project recall — it adds noise for project-specific \
-questions ("how does our auth work" should never reach into other projects).
-
-When a cross-project recall surfaces something potentially relevant (each \
-result will have `cross_project: true` and `source_project: <label>`):
-1. NEVER apply it silently. The other project's stack, context, or \
-constraints may differ from the current one.
-2. Explicitly mention which project it came from in your reply.
-3. ASK the user whether to apply it to the current task before doing so. \
-Example: "Memory from <source_project> suggests X — worth applying here?"
-4. ATTACH per-pattern `related` LINKS. When you write a current-project \
-memory that builds on, adapts, or was informed by recalled memories (local \
-or cross-project), populate the `links` array with ONE `related` entry PER \
-source memory you drew from — not a single summary link, not zero links. \
-Links live as METADATA on the memories you'd write anyway; you do NOT need \
-to create extra memories just to record provenance.
-
-For wholesale inheritance (you adopted multiple patterns from another \
-project but have no project-specific insight to capture yet), write ONE \
-"inherited <patterns> from <source_project>" memory and attach one \
-`related` link per source memory adopted. Don't fan out into one memory per \
-pattern — the links carry the granularity, not the memory count.
+For wholesale inheritance (adopted multiple patterns from another project, \
+no project-specific insight yet to capture), write ONE \
+"inherited <patterns> from <source_project>" memory with one `related` link \
+per adopted source.
 
 Use the kinds:
 - decision: architecture, dependencies, tradeoffs ("chose X over Y because Z")
 - attempt: things tried with their outcome (always set `outcome`); content \
-should generalize the lesson, not just narrate
+generalizes, not narrates
 - gotcha: code that looks right but breaks, surprising library behavior, \
-footguns — the conditions matter as much as the symptom
-- preference: durable team/user style choices worth honoring later
+footguns
+- preference: durable team/user style choices
 - fact / question: rarer; use sparingly
 
 DO NOT REMEMBER trivial edits, generic programming knowledge already in your \
 training, info that belongs in code/docs/commits, or single-conversation \
-transient context. Sparse high-signal beats dense noise.
-
-Use `update_memory` or `supersede_with` rather than accumulating near-duplicates.
+transient context. Use `update_memory` or `supersede_with` rather than \
+accumulating near-duplicates.
 """
 
 mcp = FastMCP("lodestone", instructions=LODESTONE_INSTRUCTIONS, lifespan=lifespan)
