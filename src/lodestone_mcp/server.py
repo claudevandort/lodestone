@@ -138,10 +138,18 @@ constraints may differ from the current one.
 2. Explicitly mention which project it came from in your reply.
 3. ASK the user whether to apply it to the current task before doing so. \
 Example: "Memory from <source_project> suggests X — worth applying here?"
-4. If the user accepts and you adapt it, ALSO call `remember` to capture the \
-local adaptation as a current-project memory, linked back to the cross-project \
-source via `links: [{to_uuid: <source_uuid>, kind: "related"}]`. This builds a \
-traceable lineage of "where did this convention come from".
+4. ATTACH per-pattern `related` LINKS. When you write a current-project \
+memory that builds on, adapts, or was informed by recalled memories (local \
+or cross-project), populate the `links` array with ONE `related` entry PER \
+source memory you drew from — not a single summary link, not zero links. \
+Links live as METADATA on the memories you'd write anyway; you do NOT need \
+to create extra memories just to record provenance.
+
+For wholesale inheritance (you adopted multiple patterns from another \
+project but have no project-specific insight to capture yet), write ONE \
+"inherited <patterns> from <source_project>" memory and attach one \
+`related` link per source memory adopted. Don't fan out into one memory per \
+pattern — the links carry the granularity, not the memory count.
 
 Use the kinds:
 - decision: architecture, dependencies, tradeoffs ("chose X over Y because Z")
@@ -221,7 +229,17 @@ def remember(
     confidence: number 0..1 (NOT a word). 0.95 = verified by test/source,
                 0.7 = default, 0.3 = speculative. Strings "high"/"medium"/"low"
                 are coerced as a fallback but a number is preferred.
-    links:      [{to_uuid, kind: supersedes|related|contradicts|caused_by}]
+    links:      Provenance/semantic edges as METADATA on this memory — one
+                entry per source memory:
+                  [{to_uuid, kind: supersedes|related|contradicts|caused_by}]
+                When this insight builds on, adapts, or was informed by
+                recalled memories (local OR cross-project), populate
+                `related` PER source — one link per memory drawn from.
+                Don't summarize multiple sources into a single link, don't
+                skip linking when the provenance is real, and don't write a
+                separate memory just to record a link — the link goes on
+                whatever memory you're already writing. The graph is
+                traversable only if the links are here.
     """
     return memory.remember(
         _conn(ctx),
