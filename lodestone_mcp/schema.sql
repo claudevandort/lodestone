@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS memories (
   uuid          TEXT NOT NULL UNIQUE,
   project_id    TEXT NOT NULL,
   project_label TEXT,
+  source_file   TEXT,                          -- abs path of auto-memory file (Feature 1)
   author_id     TEXT NOT NULL DEFAULT 'claude',
   kind          TEXT NOT NULL CHECK (kind IN (
                   'attempt','decision','gotcha','preference','fact','question'
@@ -24,6 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_mem_project_kind
   ON memories(project_id, kind) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_mem_recent
   ON memories(project_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_mem_source_file
+  ON memories(source_file) WHERE source_file IS NOT NULL AND deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS tags (
   id   INTEGER PRIMARY KEY,

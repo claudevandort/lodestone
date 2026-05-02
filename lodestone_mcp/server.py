@@ -94,30 +94,22 @@ ask: "what is the durable lesson worth carrying out of this conversation?" \
 Not every conversation produces one — that's fine. Quality of insight beats \
 frequency of capture.
 
-DUAL-WRITE WITH CLAUDE CODE'S AUTO-MEMORY
+AUTO-MEMORY MIRRORING (A SAFETY NET, NOT THE PRIMARY PATH)
 Claude Code maintains its own per-session, file-based memory at \
-~/.claude/projects/<project>/memory/. Those files are auto-loaded into \
-context at session start for THIS project — that's how Claude Code surfaces \
-memories at boot. Lodestone is the SEARCHABLE, CROSS-SESSION, CROSS-TEAMMATE \
-index over the same kind of knowledge.
+~/.claude/projects/<project>/memory/, which is auto-loaded at session \
+start for THIS project. When the lodestone plugin is installed, a \
+PostToolUse hook mirrors auto-memory writes into lodestone's searchable \
+index — so an insight captured to auto-memory also becomes findable \
+across sessions and projects.
 
-The two systems are complementary, NOT alternative. A memory only in \
-auto-memory is invisible to: future Claude instances working on related \
-projects, human teammates working on the same project from a different \
-machine, and yourself in three months when a different cwd or session is \
-loaded. The auto-memory file is the readable session-boot copy; the lodestone \
-entry is what makes the same insight findable across all of those.
-
-PROCEDURE: for EACH memory file you write or update under auto-memory, also \
-call `remember` (or `update_memory`) with the same insight — one lodestone \
-call per file. The schemas DIFFER: auto-memory's frontmatter `name` maps to \
-lodestone's `title`, `description` to `content`, and `type` to `kind`. \
-`title` and `content` are REQUIRED; `confidence` is a number 0..1 (not a word \
-like "high"). See the `remember` tool description for the full mapping.
-
-If a `remember` call fails validation, FIX the args and retry — do not \
-abandon the dual-write because the first call errored, and do not skip \
-remaining files. Both writes are required for a memory to be team-shared.
+That's a SAFETY NET, not the primary capture path. Your primary path is \
+`remember` directly: it's faster (no file IO), it lets you control fields \
+auto-memory doesn't cover (`kind`, `tags`, `confidence`, `links`), and it \
+works in every session — not just ones where the plugin is installed. \
+When the user says something insight-worthy, call `remember` first; if \
+you also write an auto-memory file for unrelated reasons (Claude Code's \
+built-in flow), the hook keeps lodestone in sync without you needing to \
+call `remember` again for the same content.
 
 CROSS-PROJECT RECALL
 By default, `recall` searches only THIS project's memories. You can opt in to \
@@ -188,23 +180,13 @@ def remember(
     teammate who has zero context from this conversation — they must be able
     to act on the memory cold.
 
-    DUAL-WRITE: if you also wrote a memory file to Claude Code's auto-memory
-    directory (~/.claude/projects/<project>/memory/), you MUST also call this
-    tool with the same insight. Auto-memory is loaded at session start;
-    lodestone is what makes the same insight findable across sessions, related
-    projects, and human teammates. Both writes are required for a memory to
-    be team-shared.
-
-    MAPPING from auto-memory's `.md` frontmatter to this tool's args (the
-    field names DIFFER):
-      auto-memory `name`        →  this tool's `title`     (one-line lesson)
-      auto-memory `description` →  this tool's `content`   (full insight body —
-                                       use the file's body text, not just
-                                       the short description line)
-      auto-memory `type`        →  this tool's `kind`
-                                       (feedback → preference,
-                                        project  → fact,
-                                        otherwise pick from the kind list)
+    This is the PRIMARY capture path. When the user says something
+    insight-worthy or you reach a natural reflection point, call `remember`
+    directly — it works in every session, gives you control over `kind` /
+    `tags` / `confidence` / `links`, and is faster than writing files. The
+    plugin's auto-memory mirroring hook is a separate safety net for
+    auto-memory writes triggered by Claude Code's built-in flow; it does
+    NOT mean you should skip calling `remember` here.
 
     Phrase content as "in situation X, approach Y has property Z" rather than
     "I did X." Compare:

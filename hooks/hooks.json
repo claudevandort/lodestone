@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "diff -q \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA}/requirements.txt\" >/dev/null 2>&1 || (mkdir -p \"${CLAUDE_PLUGIN_DATA}/site-packages\" && pip install --quiet --target=\"${CLAUDE_PLUGIN_DATA}/site-packages\" -r \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" && cp \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA}/requirements.txt\")"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages\" python \"${CLAUDE_PLUGIN_ROOT}/lodestone_mcp/mirror.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -55,6 +55,7 @@ def remember(
     links: list[dict[str, str]] | None = None,
     project_id: str | None = None,
     project_label: str | None = None,
+    source_file: str | None = None,
 ) -> dict:
     if kind not in VALID_KINDS:
         raise ValueError(f"invalid kind: {kind}")
@@ -76,12 +77,12 @@ def remember(
 
     cur = conn.execute(
         """INSERT INTO memories
-             (uuid, project_id, project_label, kind, title, content, outcome,
-              confidence, context, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             (uuid, project_id, project_label, source_file, kind, title, content,
+              outcome, confidence, context, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            uid, pid, plabel, kind, title, content, outcome, confidence,
-            json.dumps(context) if context else None, now, now,
+            uid, pid, plabel, source_file, kind, title, content, outcome,
+            confidence, json.dumps(context) if context else None, now, now,
         ),
     )
     mid = cur.lastrowid
@@ -276,9 +277,13 @@ def update(
     now = _now()
 
     if patch:
+        if "kind" in patch and patch["kind"] not in VALID_KINDS:
+            raise ValueError(f"invalid kind: {patch['kind']}")
+        if "outcome" in patch and patch["outcome"] is not None and patch["outcome"] not in VALID_OUTCOMES:
+            raise ValueError(f"invalid outcome: {patch['outcome']}")
         cols: list[str] = []
         vals: list[Any] = []
-        for col in ("title", "content", "confidence", "outcome"):
+        for col in ("title", "content", "confidence", "outcome", "kind"):
             if col in patch:
                 cols.append(f"{col} = ?")
                 vals.append(patch[col])

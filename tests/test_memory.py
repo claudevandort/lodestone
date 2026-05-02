@@ -83,6 +83,39 @@ def test_confidence_unknown_word_raises(temp_db, fake_embed, clock):
         )
 
 
+# ---- source_file + kind in patch (Feature 1 plumbing in memory.py) ----
+
+def test_remember_persists_source_file(temp_db, fake_embed, clock):
+    result = memory.remember(
+        temp_db, kind="fact", title="t", content="c",
+        project_id="p1",
+        source_file="/abs/path/to/file.md",
+    )
+    row = temp_db.execute(
+        "SELECT source_file FROM memories WHERE uuid = ?", (result["uuid"],),
+    ).fetchone()
+    assert row["source_file"] == "/abs/path/to/file.md"
+
+
+def test_update_can_change_kind(temp_db, fake_embed, clock):
+    """Required for the hook: when an auto-memory file's `type` changes,
+    we update the lodestone row's `kind`."""
+    m = memory.remember(
+        temp_db, kind="fact", title="t", content="c", project_id="p1",
+    )
+    memory.update(temp_db, uuid=m["uuid"], patch={"kind": "preference"})
+    fetched = memory.get(temp_db, uuid=m["uuid"])
+    assert fetched["kind"] == "preference"
+
+
+def test_update_rejects_invalid_kind_in_patch(temp_db, fake_embed, clock):
+    m = memory.remember(
+        temp_db, kind="fact", title="t", content="c", project_id="p1",
+    )
+    with pytest.raises(ValueError, match="invalid kind"):
+        memory.update(temp_db, uuid=m["uuid"], patch={"kind": "bogus"})
+
+
 # ---- recall: relevance ----
 
 def test_recall_surfaces_semantically_similar(temp_db, fake_embed, clock):
