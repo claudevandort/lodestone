@@ -18,6 +18,7 @@ PLUGIN_MANIFEST = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE_MANIFEST = REPO / ".claude-plugin" / "marketplace.json"
 HOOKS_CONFIG = REPO / "hooks" / "hooks.json"
 CURATOR_AGENT = REPO / "agents" / "lodestone-curator.md"
+CAPTURE_COMMAND = REPO / "commands" / "capture.md"
 
 # Source of truth for valid lodestone tool names — derived from the actual
 # server registration so this test fails if a tool is renamed/removed.
@@ -154,3 +155,29 @@ def test_curator_agent_body_is_substantive():
     text = CURATOR_AGENT.read_text()
     body = _FRONTMATTER_RE.sub("", text, count=1)
     assert len(body.strip()) > 500, "curator agent system prompt is suspiciously short"
+
+
+# ---- commands/capture.md ----
+
+def test_capture_command_file_exists():
+    assert CAPTURE_COMMAND.exists(), f"missing command file: {CAPTURE_COMMAND}"
+
+
+def test_capture_command_has_description_frontmatter():
+    fm = _parse_frontmatter(CAPTURE_COMMAND.read_text())
+    assert "description" in fm and fm["description"], \
+        "capture.md should have a description (used by /capture autocomplete)"
+
+
+def test_capture_command_invokes_curator():
+    """The slash command's whole job is to spawn the curator subagent."""
+    text = CAPTURE_COMMAND.read_text()
+    assert "lodestone-curator" in text, \
+        "capture.md should reference the lodestone-curator subagent"
+
+
+def test_capture_command_passes_arguments_through():
+    """`/capture <topic>` should expose $ARGUMENTS to focus the curator."""
+    text = CAPTURE_COMMAND.read_text()
+    assert "$ARGUMENTS" in text, \
+        "capture.md should reference $ARGUMENTS so /capture <topic> works"
