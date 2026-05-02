@@ -39,6 +39,20 @@ teammates working on this project. Treat it as the team's collective notebook \
 — not a chat scratchpad. Memories should "click" in future contexts that may \
 look unrelated on the surface.
 
+PREFLIGHT — DO THIS ONCE PER SESSION, BEFORE YOUR FIRST USER REPLY
+Lodestone's tools (`recall`, `remember`, etc.) are typically deferred — not \
+immediately in your tool list. You MUST load their schemas via ToolSearch \
+before you can call them. The discipline below ("RECALL BEFORE EVERY TASK") \
+fails silently if you skip this step, because the very first attempt to call \
+`recall` will fail with InputValidationError. Run this as your first action:
+
+  ToolSearch(query="lodestone", max_results=10)
+
+This loads every lodestone tool schema in one shot regardless of which install \
+prefix is active (`mcp__lodestone__*` for global registration, \
+`mcp__plugin_lodestone_lodestone__*` for plugin install). Sub-second; once per \
+session; lets the rest of these instructions actually fire.
+
 THE FORM OF A GOOD MEMORY: INSIGHTS, NOT TRANSCRIPTS
 A good memory distills the transferable lesson, not the event. Compare:
 - BAD:  "we tried SQLAlchemy and it failed"
