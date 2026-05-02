@@ -89,10 +89,17 @@ the user proposing an approach that may have been tried before.
 CALL `remember` AS DELIBERATE SYNTHESIS, NOT REACTIVE CHECKBOX
 Don't trigger `remember` mechanically on every event matching a kind. At \
 natural reflection points (a decision made, an attempt resolved, a debugging \
-revelation, a non-obvious user preference, the close of a substantial task), \
-ask: "what is the durable lesson worth carrying out of this conversation?" \
-Not every conversation produces one — that's fine. Quality of insight beats \
-frequency of capture.
+revelation, a non-obvious user preference), ask: "what is the durable \
+lesson worth carrying out of this conversation?" Not every moment produces \
+one — that's fine. Quality of insight beats frequency of capture.
+
+If you finish substantial work without having captured along the way (deep \
+in build mode, no natural pause to reflect), invoke the `lodestone-curator` \
+subagent via `Task(subagent_type="lodestone-curator", ...)` to do a \
+wrap-up review. The curator runs in its own context with a single focused \
+job — extracting and storing insights — so it doesn't suffer the same \
+task-pressure that made you skip capture in the first place. Pass it a \
+brief description of what was worked on; it handles the rest.
 
 AUTO-MEMORY MIRRORING (A SAFETY NET, NOT THE PRIMARY PATH)
 Claude Code maintains its own per-session, file-based memory at \
