@@ -6,10 +6,9 @@
       "name": "lodestone",
       "source": {
         "source": "github",
-        "repo": "REPLACE_WITH_OWNER/lodestone-mcp"
+        "repo": "claudevandort/lodestone-mcp"
       },
-      "description": "Persistent project memory for Claude Code."
+      "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator."
     }
-  ],
-  "_status": "scaffolding only — repo URL must be set before publishing."
+  ]
 }
