@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages\" python \"${CLAUDE_PLUGIN_ROOT}/lodestone_mcp/mirror.py\""
+            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages\" python \"${CLAUDE_PLUGIN_ROOT}/lodestone_memory/mirror.py\""
           }
         ]
       }

@@ -1,4 +1,4 @@
-"""`python -m lodestone_mcp` → run the MCP server.
+"""`python -m lodestone_memory` → run the MCP server.
 
 The plugin manifest (`.claude-plugin/plugin.json`) references this so Claude
 Code spawns the server as a stdio process. Kept as a thin wrapper around

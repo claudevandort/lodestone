@@ -1,4 +1,4 @@
-"""Tests for the dual-write hook (lodestone_mcp/mirror.py).
+"""Tests for the dual-write hook (lodestone_memory/mirror.py).
 
 Covers the pure helpers (frontmatter parser, path matcher, field mapping)
 and the DB-touching upsert path. Hook entry-point itself (main()) is
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from lodestone_mcp import db, memory, mirror
+from lodestone_memory import db, memory, mirror
 
 
 # ---- is_auto_memory_path ----

@@ -1,6 +1,6 @@
 import pytest
 
-from lodestone_mcp import memory
+from lodestone_memory import memory
 
 
 # ---- core CRUD ----
@@ -174,7 +174,7 @@ def test_open_db_handles_old_db_without_migration_columns(tmp_path, fake_embed):
     index re-creation. Caught when the plugin tried to open the user's
     existing ~/.lodestone/memory.db post-Feature-1.
     """
-    from lodestone_mcp.db import open_db
+    from lodestone_memory.db import open_db
     db_path = tmp_path / "old.db"
 
     # Bootstrap a current-schema DB, then strip migration-added columns to

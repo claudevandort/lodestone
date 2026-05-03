@@ -35,7 +35,7 @@ search so it doesn't repeat dead ends or forget hard-won decisions.
 and FTS5 for keyword search. WAL mode. One row per memory, one vector per row,
 typed links between memories.
 
-See `src/lodestone_mcp/schema.sql` for the canonical DDL.
+See `src/lodestone_memory/schema.sql` for the canonical DDL.
 
 ### Tables
 

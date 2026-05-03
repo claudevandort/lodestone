@@ -1,12 +1,12 @@
 {
-  "name": "lodestone-mcp",
+  "name": "lodestone-memory",
   "description": "Single-plugin marketplace hosting the lodestone memory plugin.",
   "plugins": [
     {
       "name": "lodestone",
       "source": {
         "source": "github",
-        "repo": "claudevandort/lodestone-mcp"
+        "repo": "claudevandort/lodestone-memory"
       },
       "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator."
     }

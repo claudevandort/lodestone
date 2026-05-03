@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from lodestone_mcp import ranking
+from lodestone_memory import ranking
 
 NOW = 1_700_000_000  # arbitrary fixed epoch ~Nov 2023
 

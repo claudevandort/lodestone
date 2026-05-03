@@ -35,7 +35,7 @@ import grade as grader  # sibling module, evals/grade.py
 import history  # sibling module, evals/history.py
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LODESTONE_BIN = REPO_ROOT / ".venv" / "bin" / "lodestone-mcp"
+LODESTONE_BIN = REPO_ROOT / ".venv" / "bin" / "lodestone-memory"
 SCENARIOS_PATH = REPO_ROOT / "evals" / "scenarios.json"
 RESULTS_DIR = REPO_ROOT / "evals" / "results"
 HISTORY_PATH = RESULTS_DIR / "history.jsonl"
@@ -54,7 +54,7 @@ def lodestone_tool_names() -> list[str]:
     eval allowlist can never drift out of sync with what's actually shipped.
     """
     import asyncio
-    from lodestone_mcp.server import mcp
+    from lodestone_memory.server import mcp
     return [f"mcp__lodestone__{t.name}" for t in asyncio.run(mcp.list_tools())]
 
 
@@ -66,7 +66,7 @@ def seed_db(db_path: Path, project_id: str, seeds: list[dict]) -> None:
     """
     # Import locally so that callers who only want to grade don't need to
     # boot lodestone or its embedding deps.
-    from lodestone_mcp import db, memory
+    from lodestone_memory import db, memory
 
     conn = db.open_db(db_path)
     for seed in seeds:
@@ -229,7 +229,7 @@ def main() -> None:
     load_dotenv(Path.home() / ".lodestone" / ".env")
 
     if not LODESTONE_BIN.exists():
-        sys.exit(f"lodestone-mcp binary not found at {LODESTONE_BIN}; run `pip install -e .`")
+        sys.exit(f"lodestone-memory binary not found at {LODESTONE_BIN}; run `pip install -e .`")
     if not os.environ.get("VOYAGE_API_KEY"):
         sys.exit("VOYAGE_API_KEY is not set (needed for seeding embeddings)")
 

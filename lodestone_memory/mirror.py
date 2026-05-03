@@ -33,8 +33,8 @@ from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(Path.home() / ".lodestone" / ".env")
 
-from lodestone_mcp import db, memory  # noqa: E402  (after load_dotenv)
-from lodestone_mcp.project import derive_project_id  # noqa: E402
+from lodestone_memory import db, memory  # noqa: E402  (after load_dotenv)
+from lodestone_memory.project import derive_project_id  # noqa: E402
 
 # Auto-memory paths look like:
 #   <home>/.claude/projects/<sanitized-project-path>/memory/<name>.md

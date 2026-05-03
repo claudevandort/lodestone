@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from lodestone_mcp import db, embeddings, memory
+from lodestone_memory import db, embeddings, memory
 
 
 def _fake_embed(text: str, *, input_type: str = "document") -> list[float]:

@@ -10,7 +10,7 @@
   "mcpServers": {
     "lodestone": {
       "command": "python",
-      "args": ["-m", "lodestone_mcp"],
+      "args": ["-m", "lodestone_memory"],
       "env": {
         "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages"
       }

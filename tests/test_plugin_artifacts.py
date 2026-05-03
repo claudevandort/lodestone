@@ -18,7 +18,7 @@ PLUGIN_MANIFEST = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE_MANIFEST = REPO / ".claude-plugin" / "marketplace.json"
 HOOKS_CONFIG = REPO / "hooks" / "hooks.json"
 CURATOR_AGENT = REPO / "agents" / "lodestone-curator.md"
-CAPTURE_COMMAND = REPO / "commands" / "capture.md"
+REMEMBER_COMMAND = REPO / "commands" / "remember.md"
 
 # Source of truth for valid lodestone tool names. Returns BOTH naming forms
 # the curator might see depending on how lodestone is installed:
@@ -27,7 +27,7 @@ CAPTURE_COMMAND = REPO / "commands" / "capture.md"
 # The curator's frontmatter must declare both forms to work in both contexts.
 def _live_lodestone_tool_names() -> set[str]:
     import asyncio
-    from lodestone_mcp.server import mcp
+    from lodestone_memory.server import mcp
     base = [t.name for t in asyncio.run(mcp.list_tools())]
     manifest = json.loads(PLUGIN_MANIFEST.read_text())
     plugin_name = manifest["name"]
@@ -57,14 +57,14 @@ def test_plugin_manifest_has_required_fields():
         f"version should be SemVer-shaped, got {m['version']!r}"
 
 
-def test_plugin_manifest_declares_lodestone_mcp_server():
+def test_plugin_manifest_declares_lodestone_memory_server():
     m = json.loads(PLUGIN_MANIFEST.read_text())
     assert "mcpServers" in m
     assert "lodestone" in m["mcpServers"]
     server_cfg = m["mcpServers"]["lodestone"]
     assert server_cfg["command"] == "python"
-    assert server_cfg["args"] == ["-m", "lodestone_mcp"]
-    # PYTHONPATH must include the plugin root for `python -m lodestone_mcp`
+    assert server_cfg["args"] == ["-m", "lodestone_memory"]
+    # PYTHONPATH must include the plugin root for `python -m lodestone_memory`
     assert "${CLAUDE_PLUGIN_ROOT}" in server_cfg["env"]["PYTHONPATH"]
 
 
@@ -114,7 +114,7 @@ def test_post_tool_use_invokes_mirror_script():
         for hook in group.get("hooks", []):
             cmds.append(hook.get("command", ""))
     assert any("mirror.py" in c for c in cmds), \
-        "PostToolUse Write hook should run lodestone_mcp/mirror.py"
+        "PostToolUse Write hook should run lodestone_memory/mirror.py"
 
 
 # ---- agents/lodestone-curator.md ----
@@ -124,7 +124,7 @@ _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
 def _parse_frontmatter(text: str) -> dict[str, str]:
     """Light parser for the YAML-ish frontmatter agents use. Same shape as
-    lodestone_mcp.mirror.parse_frontmatter but local to keep tests independent.
+    lodestone_memory.mirror.parse_frontmatter but local to keep tests independent.
     """
     m = _FRONTMATTER_RE.match(text)
     assert m, "agent file must start with --- frontmatter ---"
@@ -184,30 +184,30 @@ def test_curator_agent_body_is_substantive():
     assert len(body.strip()) > 500, "curator agent system prompt is suspiciously short"
 
 
-# ---- commands/capture.md ----
+# ---- commands/remember.md ----
 
-def test_capture_command_file_exists():
-    assert CAPTURE_COMMAND.exists(), f"missing command file: {CAPTURE_COMMAND}"
+def test_remember_command_file_exists():
+    assert REMEMBER_COMMAND.exists(), f"missing command file: {REMEMBER_COMMAND}"
 
 
-def test_capture_command_has_description_frontmatter():
-    fm = _parse_frontmatter(CAPTURE_COMMAND.read_text())
+def test_remember_command_has_description_frontmatter():
+    fm = _parse_frontmatter(REMEMBER_COMMAND.read_text())
     assert "description" in fm and fm["description"], \
-        "capture.md should have a description (used by /capture autocomplete)"
+        "remember.md should have a description (used by /remember autocomplete)"
 
 
-def test_capture_command_invokes_curator():
+def test_remember_command_invokes_curator():
     """The slash command's whole job is to spawn the curator subagent."""
-    text = CAPTURE_COMMAND.read_text()
+    text = REMEMBER_COMMAND.read_text()
     assert "lodestone-curator" in text, \
-        "capture.md should reference the lodestone-curator subagent"
+        "remember.md should reference the lodestone-curator subagent"
 
 
-def test_capture_command_passes_arguments_through():
-    """`/capture <topic>` should expose $ARGUMENTS to focus the curator."""
-    text = CAPTURE_COMMAND.read_text()
+def test_remember_command_passes_arguments_through():
+    """`/remember <topic>` should expose $ARGUMENTS to focus the curator."""
+    text = REMEMBER_COMMAND.read_text()
     assert "$ARGUMENTS" in text, \
-        "capture.md should reference $ARGUMENTS so /capture <topic> works"
+        "remember.md should reference $ARGUMENTS so /remember <topic> works"
 
 
 # ---- mirror.py hook env-loading ----
@@ -223,11 +223,11 @@ def test_mirror_loads_dotenv_at_import():
     Found in crm1 dogfood: the hook fired correctly on an auto-memory write
     but the memory never landed in lodestone because the embed call exploded.
     """
-    text = (REPO / "lodestone_mcp" / "mirror.py").read_text()
+    text = (REPO / "lodestone_memory" / "mirror.py").read_text()
     assert "load_dotenv" in text, \
         "mirror.py must call load_dotenv() so the hook can find VOYAGE_API_KEY"
     # And specifically before the imports that consume env at first use
     dotenv_pos = text.find("load_dotenv()")
-    memory_import_pos = text.find("from lodestone_mcp import")
+    memory_import_pos = text.find("from lodestone_memory import")
     assert 0 < dotenv_pos < memory_import_pos, \
-        "load_dotenv() must run before importing lodestone_mcp.{db,memory}"
+        "load_dotenv() must run before importing lodestone_memory.{db,memory}"

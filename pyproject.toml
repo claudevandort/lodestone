@@ -1,5 +1,5 @@
 [project]
-name = "lodestone-mcp"
+name = "lodestone-memory"
 version = "0.1.0"
 description = "MCP server for project-aware Claude memory with hybrid RAG"
 requires-python = ">=3.11"
@@ -17,15 +17,15 @@ dev = [
 ]
 
 [project.scripts]
-lodestone-mcp = "lodestone_mcp.server:main"
-lodestone-purge = "lodestone_mcp.admin:purge"
+lodestone-memory = "lodestone_memory.server:main"
+lodestone-purge = "lodestone_memory.admin:purge"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["lodestone_mcp"]
+packages = ["lodestone_memory"]
 
 [tool.pytest.ini_options]
 # Put evals/ on sys.path during tests so its modules are importable

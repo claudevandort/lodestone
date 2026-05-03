@@ -16,7 +16,7 @@ curator subagent for end-of-task capture.
   `~/.claude/projects/<project>/memory/*.md` files, a PostToolUse hook
   mirrors them into the searchable lodestone index automatically. Same insight
   ends up in two places without any extra prompt discipline.
-- **`/capture` slash command** — invokes the bundled `lodestone-curator`
+- **`/remember` slash command** — invokes the bundled `lodestone-curator`
   subagent for an end-of-session wrap-up review. The curator runs in its own
   context (no build-mode pressure) and decides what's worth keeping.
 
@@ -26,8 +26,8 @@ This repo is itself a single-plugin marketplace. Two commands in any Claude
 Code session:
 
 ```
-/plugin marketplace add claudevandort/lodestone-mcp
-/plugin install lodestone@lodestone-mcp
+/plugin marketplace add claudevandort/lodestone-memory
+/plugin install lodestone@lodestone-memory
 ```
 
 The first time the plugin is enabled, a `SessionStart` hook installs the
@@ -74,10 +74,10 @@ get loaded into Claude's context on session start; Claude is steered to:
 When you finish substantial work and want a wrap-up capture pass:
 
 ```
-/capture
+/remember
 ```
 
-Optional argument focuses the curator: `/capture frontend setup`.
+Optional argument focuses the curator: `/remember the code conventions we just defined`.
 
 ## Where memories live
 
@@ -103,7 +103,7 @@ for the design rationale behind the hook + subagent + slash command split.
 ## Reporting issues
 
 Open an issue on
-[github.com/claudevandort/lodestone-mcp](https://github.com/claudevandort/lodestone-mcp).
+[github.com/claudevandort/lodestone-memory](https://github.com/claudevandort/lodestone-memory).
 
 ## License
 
