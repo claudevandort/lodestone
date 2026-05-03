@@ -18,6 +18,36 @@ VALID_LINK_KINDS = {"supersedes", "related", "contradicts", "caused_by"}
 _CONFIDENCE_WORDS = {"high": 0.9, "medium": 0.5, "med": 0.5, "low": 0.2}
 
 
+def _validate_links(links) -> None:
+    """Reject malformed `links` upfront (loud) instead of silently dropping
+    them in `_set_links` (silent — caused a curator bug where the link was
+    constructed with `target_uuid`/`type` field names that look right but
+    don't match the schema, and the link was discarded with no signal).
+    """
+    if links is None:
+        return
+    for i, link in enumerate(links):
+        if not isinstance(link, dict):
+            raise ValueError(
+                f"links[{i}] must be a dict, got {type(link).__name__}"
+            )
+        if "to_uuid" not in link or not link["to_uuid"]:
+            raise ValueError(
+                f"links[{i}] missing required field 'to_uuid' "
+                f"(NOT 'target_uuid' / 'targetMemoryId' / etc); got keys {list(link.keys())}"
+            )
+        if "kind" not in link:
+            raise ValueError(
+                f"links[{i}] missing required field 'kind' "
+                f"(NOT 'type'); got keys {list(link.keys())}"
+            )
+        if link["kind"] not in VALID_LINK_KINDS:
+            raise ValueError(
+                f"links[{i}] invalid kind {link['kind']!r}; "
+                f"must be one of {sorted(VALID_LINK_KINDS)}"
+            )
+
+
 def _coerce_confidence(value) -> float:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
@@ -64,6 +94,7 @@ def remember(
     if outcome is not None and outcome not in VALID_OUTCOMES:
         raise ValueError(f"invalid outcome: {outcome}")
     confidence = _coerce_confidence(confidence)
+    _validate_links(links)
 
     if project_id is None:
         pid, derived_label = derive_project_id()

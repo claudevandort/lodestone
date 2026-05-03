@@ -55,9 +55,20 @@ the memory — they should be able to act on it cold.
 
 4. **Populate `related` links per source.** When an insight builds on or
    adapts another memory you found via recall, add ONE `related` entry per
-   source memory in `links`. Don't summarize multiple sources into one link;
-   don't skip linking when provenance is real. The graph is traversable
-   only if the links are here.
+   source memory in `links`. Use EXACTLY this shape:
+
+   ```json
+   "links": [
+     {"to_uuid": "<full-uuid-from-recall>", "kind": "related"}
+   ]
+   ```
+
+   Field names are `to_uuid` and `kind` — NOT `target_uuid`/`targetMemoryId`/
+   `type`/etc. Pass the FULL uuid from the recall result (e.g.
+   `"2f0206f4-b7d1-4b0e-9da3-84c24b0f3114"`), NOT the 8-char prefix you
+   see in displays. Don't summarize multiple sources into one link; don't
+   skip linking when provenance is real. The graph is traversable only if
+   the links are here.
 
 5. **Set `confidence` honestly.** 0.95 = verified by test/source. 0.7 =
    default. 0.3 = speculative.

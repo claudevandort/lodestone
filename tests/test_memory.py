@@ -116,6 +116,58 @@ def test_update_rejects_invalid_kind_in_patch(temp_db, fake_embed, clock):
         memory.update(temp_db, uuid=m["uuid"], patch={"kind": "bogus"})
 
 
+def test_remember_rejects_link_with_target_uuid_field_name(temp_db, fake_embed, clock):
+    """Regression: curator subagent built links as {target_uuid, type, ...}
+    instead of {to_uuid, kind, ...} and they were silently dropped. Now
+    that's a loud ValueError instead of a silent no-op."""
+    other = memory.remember(
+        temp_db, kind="fact", title="other", content="o", project_id="p1",
+    )
+    with pytest.raises(ValueError, match="to_uuid"):
+        memory.remember(
+            temp_db, kind="fact", title="t", content="c", project_id="p1",
+            links=[{"target_uuid": other["uuid"], "type": "related"}],
+        )
+
+
+def test_remember_rejects_link_with_type_instead_of_kind(temp_db, fake_embed, clock):
+    other = memory.remember(
+        temp_db, kind="fact", title="other", content="o", project_id="p1",
+    )
+    with pytest.raises(ValueError, match="kind"):
+        memory.remember(
+            temp_db, kind="fact", title="t", content="c", project_id="p1",
+            links=[{"to_uuid": other["uuid"], "type": "related"}],
+        )
+
+
+def test_remember_rejects_link_with_invalid_kind(temp_db, fake_embed, clock):
+    other = memory.remember(
+        temp_db, kind="fact", title="other", content="o", project_id="p1",
+    )
+    with pytest.raises(ValueError, match="invalid kind"):
+        memory.remember(
+            temp_db, kind="fact", title="t", content="c", project_id="p1",
+            links=[{"to_uuid": other["uuid"], "kind": "totally-bogus"}],
+        )
+
+
+def test_remember_accepts_well_formed_link(temp_db, fake_embed, clock):
+    """Sanity: the validation doesn't reject legitimate links."""
+    a = memory.remember(
+        temp_db, kind="fact", title="a", content="a content", project_id="p1",
+    )
+    b = memory.remember(
+        temp_db, kind="fact", title="b", content="b content", project_id="p1",
+        links=[{"to_uuid": a["uuid"], "kind": "related"}],
+    )
+    fetched = memory.get(temp_db, uuid=b["uuid"])
+    assert any(
+        l["kind"] == "related" and l["to_uuid"] == a["uuid"]
+        for l in fetched["links"]
+    )
+
+
 def test_open_db_handles_old_db_without_migration_columns(tmp_path, fake_embed):
     """Regression: opening an existing DB whose `memories` table predates a
     migration-added column (e.g. source_file) must not crash on schema.sql's
