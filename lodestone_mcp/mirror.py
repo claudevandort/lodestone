@@ -22,8 +22,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from lodestone_mcp import db, memory
-from lodestone_mcp.project import derive_project_id
+from dotenv import load_dotenv
+
+# Load env files BEFORE importing modules that consume env vars at import-time
+# (embeddings caches the Voyage client on first use; if the key isn't set the
+# whole hook errors out). Same precedence as server.py: project .env wins
+# over global ~/.lodestone/.env, both lose to real env vars. Hooks inherit
+# Claude Code's process env, which typically does NOT include the user's
+# Voyage key — so we need to load the dotenv files explicitly here.
+load_dotenv()
+load_dotenv(Path.home() / ".lodestone" / ".env")
+
+from lodestone_mcp import db, memory  # noqa: E402  (after load_dotenv)
+from lodestone_mcp.project import derive_project_id  # noqa: E402
 
 # Auto-memory paths look like:
 #   <home>/.claude/projects/<sanitized-project-path>/memory/<name>.md

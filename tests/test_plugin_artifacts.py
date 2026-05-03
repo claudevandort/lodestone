@@ -208,3 +208,26 @@ def test_capture_command_passes_arguments_through():
     text = CAPTURE_COMMAND.read_text()
     assert "$ARGUMENTS" in text, \
         "capture.md should reference $ARGUMENTS so /capture <topic> works"
+
+
+# ---- mirror.py hook env-loading ----
+
+def test_mirror_loads_dotenv_at_import():
+    """Regression: mirror.py must call load_dotenv() before importing memory.
+
+    The PostToolUse hook is invoked by Claude Code with a process env that
+    does NOT pass through the user's shell env (no VOYAGE_API_KEY). Without
+    explicit load_dotenv() the embedding call in the upsert path fails with
+    `RuntimeError: VOYAGE_API_KEY is not set` and the hook exits non-zero.
+
+    Found in crm1 dogfood: the hook fired correctly on an auto-memory write
+    but the memory never landed in lodestone because the embed call exploded.
+    """
+    text = (REPO / "lodestone_mcp" / "mirror.py").read_text()
+    assert "load_dotenv" in text, \
+        "mirror.py must call load_dotenv() so the hook can find VOYAGE_API_KEY"
+    # And specifically before the imports that consume env at first use
+    dotenv_pos = text.find("load_dotenv()")
+    memory_import_pos = text.find("from lodestone_mcp import")
+    assert 0 < dotenv_pos < memory_import_pos, \
+        "load_dotenv() must run before importing lodestone_mcp.{db,memory}"
