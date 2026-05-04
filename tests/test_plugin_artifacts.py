@@ -69,14 +69,60 @@ def test_plugin_manifest_declares_lodestone_memory_server():
     assert "${CLAUDE_PLUGIN_ROOT}" in server_cfg["env"]["PYTHONPATH"]
 
 
-def test_plugin_manifest_references_hooks_file_that_exists():
+def test_plugin_manifest_does_not_reference_unset_env_vars():
+    """Regression: Claude Code's plugin loader rejects manifests that reference
+    env vars that aren't set at install time, with `MCP server <name> invalid:
+    Missing environment variables: <NAME>`. We previously had
+    `"VOYAGE_API_KEY": "${VOYAGE_API_KEY}"` to forward shell-exported keys to
+    the server, but most users will use the dotenv path (~/.lodestone/.env or
+    project .env), where the shell var is unset and the manifest reference
+    triggers the error. Drop the manifest passthrough; the server's
+    load_dotenv chain in lodestone_memory/server.py handles it. PYTHONPATH
+    is fine because CLAUDE_PLUGIN_ROOT/DATA are always set by Claude Code.
+    """
+    m = json.loads(PLUGIN_MANIFEST.read_text())
+    env = m["mcpServers"]["lodestone"].get("env", {})
+    for key, value in env.items():
+        if not isinstance(value, str):
+            continue
+        # Allow CLAUDE_PLUGIN_* (always set by Claude Code at launch).
+        # Anything else referenced via ${...} must be guaranteed-set.
+        for ref in re.findall(r"\$\{([^}]+)\}", value):
+            assert ref.startswith("CLAUDE_PLUGIN_"), (
+                f"plugin.json mcpServers.lodestone.env[{key!r}] references "
+                f"`${{{ref}}}` which may not be set at install time. Either "
+                f"drop the reference and let the server load it from dotenv, "
+                f"or document it as a hard requirement."
+            )
+
+
+def test_plugin_manifest_does_not_redeclare_conventional_hooks():
+    """Regression: Claude Code auto-loads `hooks/hooks.json` from the plugin
+    root by convention. Re-declaring `"hooks": "./hooks/hooks.json"` in
+    plugin.json registers it twice and triggers `Hook load failed: Duplicate
+    hooks file detected`. The manifest's `hooks` field is reserved for
+    *additional* hook files, not the standard one.
+
+    Found via /doctor after first marketplace install attempt:
+        lodestone-memory@lodestone [lodestone-memory]: Hook load failed:
+        Duplicate hooks file detected: ./hooks/hooks.json resolves to
+        already-loaded file ...
+    """
     m = json.loads(PLUGIN_MANIFEST.read_text())
     hooks_ref = m.get("hooks")
-    assert hooks_ref, "plugin.json should reference a hooks file"
-    hooks_path = (PLUGIN_MANIFEST.parent / hooks_ref).resolve() \
-        if hooks_ref.startswith("./") else REPO / hooks_ref
-    # Allow ./hooks/hooks.json relative to plugin.json's dir, or repo-relative
-    assert hooks_path.exists() or HOOKS_CONFIG.exists()
+    if hooks_ref is None:
+        # No reference — convention auto-load handles it. Still verify the
+        # standard file exists so the convention has something to load.
+        assert HOOKS_CONFIG.exists(), \
+            "hooks/hooks.json must exist at the conventional path even with no manifest reference"
+    else:
+        # If a reference IS declared, it must NOT point at the standard path.
+        normalized = hooks_ref.lstrip("./")
+        assert normalized != "hooks/hooks.json", (
+            "plugin.json must NOT declare hooks: ./hooks/hooks.json — that path "
+            "is auto-loaded by convention and a manifest entry registers it twice. "
+            "Use the manifest only for additional hook files."
+        )
 
 
 # ---- marketplace.json ----

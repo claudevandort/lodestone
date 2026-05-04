@@ -13,10 +13,8 @@
       "command": "python",
       "args": ["-m", "lodestone_memory"],
       "env": {
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages",
-        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}"
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages"
       }
     }
-  },
-  "hooks": "./hooks/hooks.json"
+  }
 }
