@@ -14,3 +14,4 @@ dist/
 *.egg-info/
 .pytest_cache/
 evals/results/
+TODO.md
