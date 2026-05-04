@@ -2,7 +2,7 @@
 
 **Status:** Draft (pre-implementation, post-plugin-research revision)
 **Date:** 2026-05-03
-**Owner:** Claude Vandort
+**Owner:** Claudio Guerra
 
 > **Revision note:** v2 of this PRD updates §6, §8, and §9 to reflect that
 > Claude Code has a formal **plugin** system (`.claude-plugin/plugin.json`,
