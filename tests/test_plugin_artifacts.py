@@ -363,6 +363,37 @@ def test_bootstrap_runs_pip_install_when_marker_missing(monkeypatch, tmp_path):
     assert (plugin_data / "requirements.txt").read_bytes() == requirements_text
 
 
+# ---- LODESTONE_INSTRUCTIONS must fit Claude Code's MCP cap ----
+
+def test_lodestone_instructions_fit_in_mcp_cap():
+    """Regression: Claude Code's MCP client truncates server `instructions` to
+    2048 characters (observed in MCP debug logs:
+        "Server instructions truncated from 5312 to 2048 chars").
+    Any text beyond the cap is silently dropped — the model never sees it.
+
+    The previous 5312-char version got cut mid-sentence inside the recall
+    procedure, taking the entire `remember`-discipline section with it. Net
+    effect: plugin users saw Claude run the preflight (ToolSearch) but never
+    call recall or remember on its own during build sessions, because the
+    directives that asked for that behavior were cut off.
+
+    Found via the demo-recording session: 207 Writes, 0 recall calls, 0
+    inline remember calls. Only the end-of-session `/remember` curator
+    fired (its instructions live in agents/, not in MCP server text, so
+    they aren't truncated).
+
+    Keep the budget under 2048 with margin. If you blow it, the failure is
+    silent at runtime — that's why this test is the only guard.
+    """
+    from lodestone_memory.server import LODESTONE_INSTRUCTIONS
+    n = len(LODESTONE_INSTRUCTIONS)
+    assert n <= 2048, (
+        f"LODESTONE_INSTRUCTIONS is {n} chars, will be truncated by Claude "
+        f"Code's MCP client at 2048. Trim {n - 2048}+ chars or content after "
+        f"the cut is silently dropped at runtime."
+    )
+
+
 # ---- VOYAGE_API_KEY env sanitize before load_dotenv ----
 
 @pytest.mark.parametrize("module_name,filename", [

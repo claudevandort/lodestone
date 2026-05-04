@@ -46,110 +46,58 @@ def _conn(ctx: Context):
     return ctx.request_context.lifespan_context["conn"]
 
 
+# NOTE: Claude Code truncates server `instructions` to 2048 characters. The
+# previous 5312-char version got cut mid-sentence inside the recall procedure,
+# silently dropping the entire `remember` discipline section — so plugin users
+# saw Claude do the preflight but never recall or remember on its own. This
+# rewrite preserves the load-bearing directives in <2000 chars. There's a
+# regression test (test_lodestone_instructions_fit_in_mcp_cap) that fails any
+# future edit pushing this past 2000 chars.
 LODESTONE_INSTRUCTIONS = """\
-Lodestone is shared, persistent memory across Claude sessions and human \
-teammates working on this project. Treat it as the team's collective notebook \
-— not a chat scratchpad. Memories should "click" in future contexts that may \
-look unrelated on the surface.
+Lodestone is shared, persistent memory across Claude sessions on this project.
 
-PREFLIGHT — DO THIS ONCE PER SESSION, BEFORE YOUR FIRST USER REPLY
-Lodestone's tools (`recall`, `remember`, etc.) are typically deferred — not \
-immediately in your tool list. You MUST load their schemas via ToolSearch \
-before you can call them. The discipline below ("RECALL BEFORE EVERY TASK") \
-fails silently if you skip this step, because the very first attempt to call \
-`recall` will fail with InputValidationError. Run this as your first action:
+PREFLIGHT (ONCE PER SESSION, BEFORE FIRST USER REPLY)
+Lodestone tools are deferred. Load schemas first or the first call fails:
 
   ToolSearch(query="lodestone", max_results=10)
 
-This loads every lodestone tool schema in one shot regardless of which install \
-prefix is active (`mcp__lodestone__*` for global registration, \
-`mcp__plugin_lodestone-memory_lodestone__*` for plugin install). Sub-second; once per \
-session; lets the rest of these instructions actually fire.
-
-THE FORM OF A GOOD MEMORY: INSIGHTS, NOT TRANSCRIPTS
-A good memory distills the transferable lesson, not the event. Compare:
-- BAD:  "we tried SQLAlchemy and it failed"
-- GOOD: "ORM swaps requiring a migration-history rewrite usually fail under \
-heavy alembic+Django coupling — prefer the asyncio-bridge escape hatch"
-Phrase content as "in situation X, approach Y has property Z" rather than \
-"I/we did X." Every memory must STAND ALONE — no "as we discussed", no \
-implicit context. Test: would this make sense to someone with zero knowledge \
-of the conversation that produced it?
-
 RECALL BEFORE EVERY TASK
-Treat `recall` as your FIRST move on any task involving a choice, pattern, or \
-problem class you might have hit before — which is MOST tasks. Skip only for \
+Call `recall` as your FIRST move on any task with a choice, pattern, or \
+problem class you may have hit before — which is MOST tasks. Skip only for \
 purely mechanical edits. Recall is cheap; missing a relevant insight is not.
 
-Procedure:
+- Query literal task words AND adjacent concepts ("auth" → also "session \
+management"). Multiple cheap recalls beat one narrow miss.
+- On 0 local hits, server falls back cross-project, flagged via \
+`meta.fallback_to_other_projects`. Cross-project rows carry `cross_project: \
+true` and `source_project`.
+- Recall again mid-task when an unfamiliar convention may have a memory \
+explaining why.
 
-1. Query with the literal task vocabulary AND adjacent concepts ("auth" → \
-also try "session management", "state machines", "expiring resources"). The \
-"click" — when an apparently unrelated insight applies — only happens if you \
-probe beyond the surface. Multiple cheap recalls beat one narrow miss.
+REMEMBER AS DELIBERATE SYNTHESIS
+At natural reflection points (decision made, attempt resolved, gotcha hit, \
+durable preference expressed), ask: "what is the transferable lesson?" — and \
+call `remember`. Quality beats frequency.
 
-2. The server auto-retries with cross-project when local returns ZERO results \
-and signals it via `meta.fallback_to_other_projects`. Manually opt in \
-(`include_other_projects: true`) only when local returned SOME results that \
-don't materially inform your next step.
+Phrase memories as INSIGHTS that STAND ALONE — no "as we discussed", no \
+implicit context. Format: "in situation X, approach Y has property Z."
 
-3. Integrate findings before acting — recall is not a ceremony. Local \
-memories: apply directly, briefly mention you found prior context. \
-Cross-project memories (`cross_project: true`): follow the ASK-before-applying \
-protocol below.
+Kinds: decision | attempt (set outcome) | gotcha | preference | fact.
 
-Mid-task, recall again whenever an unfamiliar convention, file structure, or \
-unexplained constraint may have a memory explaining why, or when the user \
-proposes an approach that may have been tried before.
+If you finish substantial work without capturing along the way, invoke the \
+`lodestone-memory-curator` subagent for a wrap-up review.
 
-CALL `remember` AS DELIBERATE SYNTHESIS
-At natural reflection points (decision made, attempt resolved, debugging \
-revelation, durable user preference), ask: "what is the durable lesson worth \
-carrying out of this conversation?" Quality of insight beats frequency of \
-capture; not every moment produces one.
+CROSS-PROJECT MEMORIES — APPLY WITH CARE
+When results carry `cross_project: true`:
+1. NEVER apply silently. Surface the `source_project` in your reply.
+2. ASK before applying: "Memory from <source_project> suggests X — worth \
+using here?"
+3. When capturing a memory that builds on recalled ones, populate \
+`links: [{to_uuid, kind: "related"}]` — one entry per source.
 
-If you finish substantial work without capturing along the way (deep in build \
-mode, no natural pause to reflect), invoke the `lodestone-memory-curator` subagent \
-via `Task(subagent_type="lodestone-memory-curator", ...)` for a wrap-up review. The \
-curator runs in its own context, free of build-pressure.
-
-Auto-memory note: when the lodestone plugin is installed, a PostToolUse hook \
-mirrors auto-memory writes (`~/.claude/projects/.../memory/*.md`) into \
-lodestone — but `remember` is still the primary capture path (faster, \
-controls more fields, works without the plugin).
-
-CROSS-PROJECT RECALL — APPLY WITH CARE
-When results contain memories with `cross_project: true` (whether from \
-auto-fallback or explicit opt-in):
-
-1. NEVER apply silently — the other project's stack/context may differ.
-2. Explicitly mention `source_project` in your reply.
-3. ASK the user before applying. Example: "Memory from <source_project> \
-suggests X — worth applying here?"
-4. When you write a current-project memory that builds on or adapts a \
-recalled one (local or cross-project), populate `links` with ONE `related` \
-entry PER source memory drawn from — not a summary link, not zero. Links \
-are metadata on the memory you're already writing; don't create extra \
-memories just for provenance.
-
-For wholesale inheritance (adopted multiple patterns from another project, \
-no project-specific insight yet to capture), write ONE \
-"inherited <patterns> from <source_project>" memory with one `related` link \
-per adopted source.
-
-Use the kinds:
-- decision: architecture, dependencies, tradeoffs ("chose X over Y because Z")
-- attempt: things tried with their outcome (always set `outcome`); content \
-generalizes, not narrates
-- gotcha: code that looks right but breaks, surprising library behavior, \
-footguns
-- preference: durable team/user style choices
-- fact / question: rarer; use sparingly
-
-DO NOT REMEMBER trivial edits, generic programming knowledge already in your \
-training, info that belongs in code/docs/commits, or single-conversation \
-transient context. Use `update_memory` or `supersede_with` rather than \
-accumulating near-duplicates.
+DO NOT REMEMBER trivial edits, generic programming knowledge, info that \
+belongs in code/docs/commits, or transient state. Prefer `update_memory` or \
+`supersede_with` over near-duplicates.
 """
 
 mcp = FastMCP("lodestone", instructions=LODESTONE_INSTRUCTIONS, lifespan=lifespan)
