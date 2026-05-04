@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "lodestone": {
-      "command": "/home/claudevandort/Github/lodestone-memory/.venv/bin/lodestone-memory",
+      "command": "/home/claudevandort/Github/lodestone/.venv/bin/lodestone-memory",
       "args": []
     }
   }
