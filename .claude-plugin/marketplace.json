@@ -16,7 +16,9 @@
       },
       "homepage": "https://github.com/claudevandort/lodestone",
       "category": "productivity",
-      "source": "./"
+      "source": "./",
+      "commands": ["./commands/remember.md"],
+      "agents": ["./agents/lodestone-memory-curator.md"]
     }
   ]
 }
