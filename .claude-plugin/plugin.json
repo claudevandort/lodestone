@@ -6,6 +6,7 @@
     "name": "Claudio Guerra"
   },
   "license": "MIT",
+  "homepage": "https://github.com/claudevandort/lodestone",
   "keywords": ["memory", "mcp", "rag", "embeddings", "knowledge-graph"],
   "mcpServers": {
     "lodestone": {

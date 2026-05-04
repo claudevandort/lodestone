@@ -10,13 +10,13 @@
     {
       "name": "lodestone-memory",
       "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator.",
+      "version": "0.1.0",
       "author": {
         "name": "Claudio Guerra"
       },
-      "source": {
-        "source": "github",
-        "repo": "claudevandort/lodestone"
-      }
+      "homepage": "https://github.com/claudevandort/lodestone",
+      "category": "productivity",
+      "source": "./"
     }
   ]
 }
