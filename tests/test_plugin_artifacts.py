@@ -88,6 +88,22 @@ def test_marketplace_manifest_is_valid_json_and_lists_lodestone_memory():
     assert "lodestone-memory" in names
 
 
+def test_marketplace_manifest_has_required_owner_field():
+    """Regression: Claude Code's marketplace schema rejects manifests missing
+    a top-level `owner` object with at least a `name`. Found during §4 first
+    install attempt: `/plugin marketplace add` failed with
+    `owner: Invalid input: expected object, received undefined`. The schema
+    isn't versioned in the file, so any new field the validator adds in the
+    future would surface the same way — keep this test honest by re-running
+    `claude plugin validate` when bumping plugin metadata.
+    """
+    m = json.loads(MARKETPLACE_MANIFEST.read_text())
+    assert "owner" in m, "marketplace.json must declare a top-level `owner`"
+    owner = m["owner"]
+    assert isinstance(owner, dict), "`owner` must be an object"
+    assert owner.get("name"), "`owner.name` must be a non-empty string"
+
+
 # ---- hooks/hooks.json ----
 
 def test_hooks_config_is_valid_json():

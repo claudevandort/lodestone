@@ -1,14 +1,22 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "lodestone",
   "description": "Marketplace for lodestone plugins.",
+  "owner": {
+    "name": "Claude Vandort"
+  },
+  "version": "0.1.0",
   "plugins": [
     {
       "name": "lodestone-memory",
+      "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator.",
+      "author": {
+        "name": "Claude Vandort"
+      },
       "source": {
         "source": "github",
         "repo": "claudevandort/lodestone"
-      },
-      "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator."
+      }
     }
   ]
 }
