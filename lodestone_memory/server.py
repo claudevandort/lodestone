@@ -3,10 +3,23 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import os
+
 from dotenv import load_dotenv
 from mcp.server.fastmcp import Context, FastMCP
 
 from . import db, memory
+
+# Defensive sanitize before dotenv: when running as a Claude Code plugin, the
+# manifest passes `"VOYAGE_API_KEY": "${VOYAGE_API_KEY}"`. If the shell var is
+# unset, that substitution leaves the literal `${VOYAGE_API_KEY}` string in the
+# server's process env. `load_dotenv` (default override=False) then refuses to
+# overwrite it, and Voyage rejects the literal as "Provided API key is invalid".
+# Strip any obviously-broken value so the dotenv chain can fill from the .env
+# files. A real Voyage key (`pa-...`) never starts with `${`.
+_voyage_env = os.environ.get("VOYAGE_API_KEY", "")
+if not _voyage_env or _voyage_env.startswith("${"):
+    os.environ.pop("VOYAGE_API_KEY", None)
 
 # Project .env (cwd) wins over global ~/.lodestone/.env, both lose to real env vars.
 load_dotenv()

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -208,6 +209,146 @@ def test_remember_command_passes_arguments_through():
     text = REMEMBER_COMMAND.read_text()
     assert "$ARGUMENTS" in text, \
         "remember.md should reference $ARGUMENTS so /remember <topic> works"
+
+
+# ---- __main__.py self-heal on cold cache ----
+
+def test_main_bootstraps_deps_before_importing_server():
+    """Regression: __main__.py must self-heal deps before `from .server import main`.
+
+    The SessionStart hook installs deps asynchronously with MCP server startup.
+    On a cold cache (first session after `/plugin install`) the server can lose
+    the race and crash with `ModuleNotFoundError: No module named 'mcp'`,
+    surfacing as a connection failure to the user. __main__.py must call the
+    bootstrap function BEFORE importing from .server, so a synchronous fallback
+    install closes the race window.
+    """
+    text = (REPO / "lodestone_memory" / "__main__.py").read_text()
+    bootstrap_pos = text.find("_bootstrap_plugin_deps_if_missing()")
+    server_import_pos = text.find("from .server import main")
+    assert 0 < bootstrap_pos < server_import_pos, (
+        "__main__.py must call _bootstrap_plugin_deps_if_missing() before "
+        "importing from .server (cold-cache race fix)"
+    )
+
+
+def test_bootstrap_is_noop_outside_plugin_env(monkeypatch):
+    """Bootstrap must not try to install anything in dev (no plugin env vars).
+
+    When running via the .venv entry point (`lodestone-memory`), CLAUDE_PLUGIN_ROOT
+    and CLAUDE_PLUGIN_DATA aren't set; deps come from the venv. Calling the
+    bootstrap function in that mode should be a clean no-op.
+    """
+    from lodestone_memory.__main__ import _bootstrap_plugin_deps_if_missing
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    calls = []
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: calls.append((a, kw)))
+    _bootstrap_plugin_deps_if_missing()
+    assert calls == [], "bootstrap must be a no-op when not running as a plugin"
+
+
+def test_bootstrap_is_noop_when_marker_matches(monkeypatch, tmp_path):
+    """Warm-cache fast path: marker file equals requirements.txt → no pip call."""
+    from lodestone_memory.__main__ import _bootstrap_plugin_deps_if_missing
+    plugin_root = tmp_path / "root"
+    plugin_data = tmp_path / "data"
+    plugin_root.mkdir()
+    plugin_data.mkdir()
+    (plugin_root / "requirements.txt").write_bytes(b"mcp==1.0\n")
+    (plugin_data / "requirements.txt").write_bytes(b"mcp==1.0\n")
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(plugin_data))
+    calls = []
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: calls.append((a, kw)))
+    _bootstrap_plugin_deps_if_missing()
+    assert calls == [], "bootstrap must skip pip install when marker already matches"
+
+
+def test_bootstrap_runs_pip_install_when_marker_missing(monkeypatch, tmp_path):
+    """Cold-cache slow path: no marker → pip install with the right args, then write marker."""
+    from lodestone_memory.__main__ import _bootstrap_plugin_deps_if_missing
+    plugin_root = tmp_path / "root"
+    plugin_data = tmp_path / "data"
+    plugin_root.mkdir()
+    plugin_data.mkdir()
+    requirements_text = b"mcp==1.0\nvoyageai==0.3\n"
+    (plugin_root / "requirements.txt").write_bytes(requirements_text)
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(plugin_root))
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(plugin_data))
+
+    calls = []
+    def fake_run(cmd, **kw):
+        calls.append((cmd, kw))
+        # Simulate pip succeeding; bootstrap will write the marker after.
+        class _Result:
+            returncode = 0
+        return _Result()
+    monkeypatch.setattr("subprocess.run", fake_run)
+    _bootstrap_plugin_deps_if_missing()
+
+    assert len(calls) == 1, "bootstrap must invoke pip exactly once"
+    cmd, kw = calls[0]
+    assert cmd[:3] == [sys.executable, "-m", "pip"], \
+        "must invoke pip via the current python (matches plugin's interpreter)"
+    assert "install" in cmd and "--target" in cmd and "-r" in cmd
+    target_idx = cmd.index("--target")
+    assert cmd[target_idx + 1] == str(plugin_data / "site-packages")
+    req_idx = cmd.index("-r")
+    assert cmd[req_idx + 1] == str(plugin_root / "requirements.txt")
+    assert kw.get("check") is True, "must raise on pip failure (don't silently swallow)"
+    # And the marker is written afterwards so the next call is a no-op.
+    assert (plugin_data / "requirements.txt").read_bytes() == requirements_text
+
+
+# ---- VOYAGE_API_KEY env sanitize before load_dotenv ----
+
+@pytest.mark.parametrize("module_name,filename", [
+    ("server", "server.py"),
+    ("mirror", "mirror.py"),
+])
+def test_sanitizes_voyage_key_before_load_dotenv(module_name, filename):
+    """Regression: when running as a plugin, the manifest's `${VOYAGE_API_KEY}`
+    substitution leaves the literal string in the process env if the shell var
+    is unset. load_dotenv() with override=False then refuses to fill in the
+    real key from ~/.lodestone/.env, and Voyage rejects the literal as
+    "Provided API key is invalid". Both the MCP server and the PostToolUse
+    mirror hook must strip an unsubstituted/empty VOYAGE_API_KEY BEFORE the
+    first load_dotenv call so the dotenv chain can take effect.
+
+    Caught during §2 manual smoke testing (2026-05-04) — recall/remember both
+    failed with "Provided API key is invalid" even though the key in
+    ~/.lodestone/.env was valid.
+    """
+    text = (REPO / "lodestone_memory" / filename).read_text()
+    sanitize_pos = text.find('os.environ.pop("VOYAGE_API_KEY"')
+    dotenv_pos = text.find("load_dotenv()")
+    assert sanitize_pos != -1, \
+        f"{filename} must sanitize VOYAGE_API_KEY before load_dotenv (look for os.environ.pop)"
+    assert 0 < sanitize_pos < dotenv_pos, \
+        f"{filename}: VOYAGE_API_KEY sanitize must run before load_dotenv()"
+
+
+@pytest.mark.parametrize("bad_value", ["", "${VOYAGE_API_KEY}", "${VOYAGE}"])
+def test_sanitize_strips_unsubstituted_or_empty(monkeypatch, bad_value):
+    """An empty or `${...}` literal must be popped so the dotenv fallback kicks in."""
+    monkeypatch.setenv("VOYAGE_API_KEY", bad_value)
+    import os as _os
+    _voyage = _os.environ.get("VOYAGE_API_KEY", "")
+    if not _voyage or _voyage.startswith("${"):
+        _os.environ.pop("VOYAGE_API_KEY", None)
+    assert "VOYAGE_API_KEY" not in _os.environ, \
+        f"sanitize must strip {bad_value!r} so load_dotenv can fill from .env files"
+
+
+def test_sanitize_preserves_real_key(monkeypatch):
+    """A legitimate shell-set key must NOT be stripped (Option 1 in README)."""
+    monkeypatch.setenv("VOYAGE_API_KEY", "pa-shell-set-key")
+    import os as _os
+    _voyage = _os.environ.get("VOYAGE_API_KEY", "")
+    if not _voyage or _voyage.startswith("${"):
+        _os.environ.pop("VOYAGE_API_KEY", None)
+    assert _os.environ.get("VOYAGE_API_KEY") == "pa-shell-set-key"
 
 
 # ---- mirror.py hook env-loading ----

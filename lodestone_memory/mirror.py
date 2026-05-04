@@ -17,12 +17,22 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+
+# Mirror server.py's sanitize-then-dotenv pattern. When running as a plugin,
+# the hook command may inherit a process env where VOYAGE_API_KEY is the
+# unsubstituted literal `${VOYAGE_API_KEY}` (manifest substitution result when
+# the shell var is unset); load_dotenv won't override that and Voyage rejects
+# the literal as invalid.
+_voyage_env = os.environ.get("VOYAGE_API_KEY", "")
+if not _voyage_env or _voyage_env.startswith("${"):
+    os.environ.pop("VOYAGE_API_KEY", None)
 
 # Load env files BEFORE importing modules that consume env vars at import-time
 # (embeddings caches the Voyage client on first use; if the key isn't set the
