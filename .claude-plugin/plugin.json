@@ -1,5 +1,5 @@
 {
-  "name": "lodestone",
+  "name": "lodestone-memory",
   "version": "0.1.0",
   "description": "Persistent project memory for Claude Code: hybrid retrieval (Voyage embeddings + sqlite-vec + FTS5) with auto-memory dual-write, cross-project recall, and a curator subagent for end-of-task capture.",
   "author": {
@@ -12,7 +12,8 @@
       "command": "python",
       "args": ["-m", "lodestone_memory"],
       "env": {
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages"
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}:${CLAUDE_PLUGIN_DATA}/site-packages",
+        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}"
       }
     }
   },

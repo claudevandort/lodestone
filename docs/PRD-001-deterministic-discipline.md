@@ -53,7 +53,7 @@ without removing the judgment parts that prompts handle correctly:
 1. **PostToolUse hook** that auto-mirrors auto-memory writes into lodestone.
 2. **Server-side cross-project auto-retry** when local recall returns empty,
    with an explicit signal back to the caller that the fallback fired.
-3. **`lodestone-curator` subagent** for end-of-task capture, separating
+3. **`lodestone-memory-curator` subagent** for end-of-task capture, separating
    capture-as-reflection from build-mode task pressure.
 4. **`/capture` slash command** as a user-initiated escape hatch when the
    above don't fire.
@@ -209,7 +209,7 @@ a step Claude has to remember.
 
 Honored via the `meta.fallback_to_other_projects` field on the response.
 
-### Feature 3 — `lodestone-curator` subagent
+### Feature 3 — `lodestone-memory-curator` subagent
 
 **Problem.** Compass4 produced 86 Write tool calls and 0 lodestone remember
 calls. Claude was deep in build mode and "natural reflection points" never
@@ -218,11 +218,11 @@ its own context window without the build-mode pressure.
 
 **Behavior.**
 
-1. New custom subagent at `~/.claude/agents/lodestone-curator.md`.
+1. New custom subagent at `~/.claude/agents/lodestone-memory-curator.md`.
 2. Frontmatter:
    ```yaml
    ---
-   name: lodestone-curator
+   name: lodestone-memory-curator
    description: Reviews recent work and captures memorable insights into lodestone. Use after substantial work blocks or when explicitly asked to "save what we learned".
    tools: mcp__lodestone__remember, mcp__lodestone__recall, mcp__lodestone__get_memory, mcp__lodestone__update_memory, mcp__lodestone__list_recent, Read, Glob
    ---
@@ -237,7 +237,7 @@ its own context window without the build-mode pressure.
    - The curator is read-and-write into lodestone; it does NOT write to
      auto-memory (the hook covers the inverse direction)
 4. Invocation: main Claude calls
-   `Task(subagent_type="lodestone-curator", prompt="Review the recent work and capture insights worth keeping.")`
+   `Task(subagent_type="lodestone-memory-curator", prompt="Review the recent work and capture insights worth keeping.")`
    at end of substantial tasks. The user can also invoke it via the
    `/capture` command (Feature 4).
 5. Output: a structured report of memories captured (uuid, title, kind,
@@ -247,13 +247,13 @@ its own context window without the build-mode pressure.
 
 - The "CALL `remember` AS DELIBERATE SYNTHESIS" section in
   `LODESTONE_INSTRUCTIONS` updated to add: "At end of substantial work,
-  invoke the `lodestone-curator` subagent rather than capturing memories
+  invoke the `lodestone-memory-curator` subagent rather than capturing memories
   inline. This preserves your build-mode focus and gives capture its own
   context for proper reflection."
 
 **Acceptance criteria.**
 
-- `Task(subagent_type="lodestone-curator", ...)` from main Claude returns
+- `Task(subagent_type="lodestone-memory-curator", ...)` from main Claude returns
   a summary of memories captured (or "nothing worth capturing", which is
   also valid).
 - The curator writes well-formed insight-style memories (verifiable
@@ -272,7 +272,7 @@ A user-side escape hatch covers the cases where it doesn't.
 1. New slash command at `~/.claude/commands/capture.md`.
 2. Body:
    ```markdown
-   Invoke the lodestone-curator subagent to review the conversation so far
+   Invoke the lodestone-memory-curator subagent to review the conversation so far
    and capture any insights worth keeping in lodestone. Optional argument
    $ARGUMENTS narrows the curator's focus to a specific topic.
    ```
@@ -311,7 +311,7 @@ After all four features land, `LODESTONE_INSTRUCTIONS` should be **shorter**:
 | Opening framing | Keep |
 | THE FORM OF A GOOD MEMORY | Keep |
 | RECALL BEFORE EVERY TASK | Keep step 1 (local recall first); **drop step 2** (server auto-retries); keep step 3-4 |
-| CALL `remember` AS DELIBERATE SYNTHESIS | Keep, but add: "At end of substantial work, invoke the `lodestone-curator` subagent rather than capturing inline" |
+| CALL `remember` AS DELIBERATE SYNTHESIS | Keep, but add: "At end of substantial work, invoke the `lodestone-memory-curator` subagent rather than capturing inline" |
 | DUAL-WRITE WITH CLAUDE CODE'S AUTO-MEMORY | **Remove entirely** — handled by hook |
 | CROSS-PROJECT RECALL | Keep, including the per-pattern linking guidance from PRD-0 (already shipped in `a9824f1`) |
 | Use the kinds | Keep |
@@ -358,7 +358,7 @@ lodestone-mcp/                       # repo root = plugin root
 ├── hooks/
 │   └── hooks.json                   # SessionStart (deps install) + PostToolUse (mirror)
 ├── agents/
-│   └── lodestone-curator.md         # Feature 3
+│   └── lodestone-memory-curator.md         # Feature 3
 ├── commands/
 │   └── capture.md                   # Feature 4
 ├── requirements.txt                 # voyageai, sqlite-vec, mcp, pysqlite3-binary, python-dotenv
@@ -525,7 +525,7 @@ Sequenced so each step is independently committable and verifiable.
    - `hooks/hooks.json` (SessionStart deps install + PostToolUse mirror)
    - `.claude-plugin/plugin.json` (manifest with MCP server config)
    - Schema column `source_file` + migration in `db._migrate()`
-3. **Feature 3 (curator subagent).** Adds `agents/lodestone-curator.md`.
+3. **Feature 3 (curator subagent).** Adds `agents/lodestone-memory-curator.md`.
 4. **Feature 4 (/capture command).** Adds `commands/capture.md`.
 
 After all four land:

@@ -50,7 +50,7 @@ fails silently if you skip this step, because the very first attempt to call \
 
 This loads every lodestone tool schema in one shot regardless of which install \
 prefix is active (`mcp__lodestone__*` for global registration, \
-`mcp__plugin_lodestone_lodestone__*` for plugin install). Sub-second; once per \
+`mcp__plugin_lodestone-memory_lodestone__*` for plugin install). Sub-second; once per \
 session; lets the rest of these instructions actually fire.
 
 THE FORM OF A GOOD MEMORY: INSIGHTS, NOT TRANSCRIPTS
@@ -96,8 +96,8 @@ carrying out of this conversation?" Quality of insight beats frequency of \
 capture; not every moment produces one.
 
 If you finish substantial work without capturing along the way (deep in build \
-mode, no natural pause to reflect), invoke the `lodestone-curator` subagent \
-via `Task(subagent_type="lodestone-curator", ...)` for a wrap-up review. The \
+mode, no natural pause to reflect), invoke the `lodestone-memory-curator` subagent \
+via `Task(subagent_type="lodestone-memory-curator", ...)` for a wrap-up review. The \
 curator runs in its own context, free of build-pressure.
 
 Auto-memory note: when the lodestone plugin is installed, a PostToolUse hook \

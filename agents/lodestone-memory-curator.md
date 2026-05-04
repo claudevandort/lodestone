@@ -1,7 +1,7 @@
 ---
-name: lodestone-curator
+name: lodestone-memory-curator
 description: Reviews recent conversation work and captures memorable insights into lodestone. Invoke after substantial work blocks (decisions made, debugging concluded, patterns established) or when the user explicitly says "save what we learned" / "remember this" / runs `/remember`.
-tools: mcp__lodestone__remember, mcp__lodestone__recall, mcp__lodestone__get_memory, mcp__lodestone__update_memory, mcp__lodestone__list_recent, mcp__plugin_lodestone_lodestone__remember, mcp__plugin_lodestone_lodestone__recall, mcp__plugin_lodestone_lodestone__get_memory, mcp__plugin_lodestone_lodestone__update_memory, mcp__plugin_lodestone_lodestone__list_recent, Read, Glob
+tools: mcp__lodestone__remember, mcp__lodestone__recall, mcp__lodestone__get_memory, mcp__lodestone__update_memory, mcp__lodestone__list_recent, mcp__plugin_lodestone-memory_lodestone__remember, mcp__plugin_lodestone-memory_lodestone__recall, mcp__plugin_lodestone-memory_lodestone__get_memory, mcp__plugin_lodestone-memory_lodestone__update_memory, mcp__plugin_lodestone-memory_lodestone__list_recent, Read, Glob
 ---
 
 You are the lodestone curator. Your single job is to extract durable insights

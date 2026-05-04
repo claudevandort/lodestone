@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parent.parent
 PLUGIN_MANIFEST = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE_MANIFEST = REPO / ".claude-plugin" / "marketplace.json"
 HOOKS_CONFIG = REPO / "hooks" / "hooks.json"
-CURATOR_AGENT = REPO / "agents" / "lodestone-curator.md"
+CURATOR_AGENT = REPO / "agents" / "lodestone-memory-curator.md"
 REMEMBER_COMMAND = REPO / "commands" / "remember.md"
 
 # Source of truth for valid lodestone tool names. Returns BOTH naming forms
@@ -80,11 +80,11 @@ def test_plugin_manifest_references_hooks_file_that_exists():
 
 # ---- marketplace.json ----
 
-def test_marketplace_manifest_is_valid_json_and_lists_lodestone():
+def test_marketplace_manifest_is_valid_json_and_lists_lodestone_memory():
     m = json.loads(MARKETPLACE_MANIFEST.read_text())
     assert "plugins" in m and isinstance(m["plugins"], list)
     names = [p["name"] for p in m["plugins"]]
-    assert "lodestone" in names
+    assert "lodestone-memory" in names
 
 
 # ---- hooks/hooks.json ----
@@ -117,7 +117,7 @@ def test_post_tool_use_invokes_mirror_script():
         "PostToolUse Write hook should run lodestone_memory/mirror.py"
 
 
-# ---- agents/lodestone-curator.md ----
+# ---- agents/lodestone-memory-curator.md ----
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
@@ -144,7 +144,7 @@ def test_curator_agent_has_required_frontmatter_fields():
     fm = _parse_frontmatter(CURATOR_AGENT.read_text())
     for field in ("name", "description", "tools"):
         assert field in fm, f"curator agent missing frontmatter field: {field}"
-    assert fm["name"] == "lodestone-curator"
+    assert fm["name"] == "lodestone-memory-curator"
 
 
 def test_curator_agent_only_references_real_lodestone_tools():
@@ -173,7 +173,7 @@ def test_curator_agent_does_not_grant_forget():
     declared = [t.strip() for t in fm["tools"].split(",")]
     assert "mcp__lodestone__forget" not in declared, \
         "v1 curator should not be able to forget (global form); revisit per PRD §10 Q2"
-    assert "mcp__plugin_lodestone_lodestone__forget" not in declared, \
+    assert "mcp__plugin_lodestone-memory_lodestone__forget" not in declared, \
         "v1 curator should not be able to forget (plugin form); revisit per PRD §10 Q2"
 
 
@@ -199,8 +199,8 @@ def test_remember_command_has_description_frontmatter():
 def test_remember_command_invokes_curator():
     """The slash command's whole job is to spawn the curator subagent."""
     text = REMEMBER_COMMAND.read_text()
-    assert "lodestone-curator" in text, \
-        "remember.md should reference the lodestone-curator subagent"
+    assert "lodestone-memory-curator" in text, \
+        "remember.md should reference the lodestone-memory-curator subagent"
 
 
 def test_remember_command_passes_arguments_through():

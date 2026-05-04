@@ -2,7 +2,7 @@
 description: Review the recent conversation and capture insights worth keeping in lodestone. Optional argument $ARGUMENTS narrows the curator's focus to a specific topic — e.g. "/remember the code conventions we just defined".
 ---
 
-Invoke the `lodestone-curator` subagent via the Task tool to review the
+Invoke the `lodestone-memory-curator` subagent via the Task tool to review the
 conversation so far and capture any durable insights worth keeping in
 lodestone.
 

@@ -1,12 +1,12 @@
 {
-  "name": "lodestone-memory",
-  "description": "Single-plugin marketplace hosting the lodestone memory plugin.",
+  "name": "lodestone",
+  "description": "Marketplace for lodestone plugins.",
   "plugins": [
     {
-      "name": "lodestone",
+      "name": "lodestone-memory",
       "source": {
         "source": "github",
-        "repo": "claudevandort/lodestone-memory"
+        "repo": "claudevandort/lodestone"
       },
       "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator."
     }
