@@ -61,42 +61,43 @@ Lodestone tools are deferred. Load schemas first or the first call fails:
 
   ToolSearch(query="lodestone", max_results=10)
 
-RECALL BEFORE EVERY TASK
-Call `recall` as your FIRST move on any task with a choice, pattern, or \
-problem class you may have hit before — which is MOST tasks. Skip only for \
-purely mechanical edits. Recall is cheap; missing a relevant insight is not.
+RECALL BEFORE ANY NON-TRIVIAL TASK
+Call `recall` BEFORE acting on: a new project, scaffolding, choosing \
+approaches, debugging, or any task touching a pattern you may have hit. \
+Feature-spec prompts STILL trigger recall — past stack/conventions apply. \
+Skip only purely mechanical edits.
 
-- Query literal task words AND adjacent concepts ("auth" → also "session \
+- Query literal task words AND adjacent concepts ("auth" → "session \
 management"). Multiple cheap recalls beat one narrow miss.
-- On 0 local hits, server falls back cross-project, flagged via \
-`meta.fallback_to_other_projects`. Cross-project rows carry `cross_project: \
-true` and `source_project`.
-- Recall again mid-task when an unfamiliar convention may have a memory \
-explaining why.
+- On 0 local hits, server falls back cross-project (flagged via \
+`meta.fallback_to_other_projects`). Rows carry `cross_project: true` and \
+`source_project`.
+- Recall mid-task when an unfamiliar convention may have a memory.
 
-CROSS-PROJECT RESULTS — STOP AND ASK
-When `meta.next_action` is set OR any result has `cross_project: true`, you \
-MUST NOT apply silently. Use `AskUserQuestion` (NOT plain prose) to confirm \
-before applying — include the `source_project` in the question text. When \
-capturing a memory that builds on a recalled one, populate \
+CROSS-PROJECT RESULTS — ALWAYS ASK FIRST
+When `meta.next_action` is set OR any result has `cross_project: true`, \
+you MUST call `AskUserQuestion` BEFORE applying — EVEN IF the user's \
+prompt seemed to pre-consent. The modal lets them review the specific \
+conventions and `source_project`, then confirm/adjust. Don't paraphrase \
+in chat — that bypasses the review.
+
+When capturing a memory that builds on a recalled one, populate \
 `links: [{to_uuid, kind: "related"}]` — one entry per source.
 
 REMEMBER AS DELIBERATE SYNTHESIS
-At natural reflection points (decision made, attempt resolved, gotcha hit, \
-durable preference expressed), ask: "what is the transferable lesson?" — and \
-call `remember`. Quality beats frequency.
-
-Phrase memories as INSIGHTS that STAND ALONE — no "as we discussed", no \
-implicit context. Format: "in situation X, approach Y has property Z."
+At reflection points (decision made, attempt resolved, gotcha hit, \
+preference expressed), call `remember`. Phrase as INSIGHTS that STAND \
+ALONE — no "as we discussed". Format: "in situation X, approach Y has \
+property Z."
 
 Kinds: decision | attempt (set outcome) | gotcha | preference | fact.
 
-If you finish substantial work without capturing along the way, invoke the \
-`lodestone-memory-curator` subagent for a wrap-up review.
+If you finish substantial work without capturing, invoke \
+`lodestone-memory-curator` for a wrap-up.
 
 DO NOT REMEMBER trivial edits, generic programming knowledge, info in \
-code/docs/commits, or transient state. Prefer `update_memory` or \
-`supersede_with` over near-duplicates.
+code/docs/commits, or transient state. Prefer `update_memory` over \
+near-duplicates.
 """
 
 mcp = FastMCP("lodestone", instructions=LODESTONE_INSTRUCTIONS, lifespan=lifespan)
