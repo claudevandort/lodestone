@@ -58,11 +58,28 @@ def lodestone_tool_names() -> list[str]:
     return [f"mcp__lodestone__{t.name}" for t in asyncio.run(mcp.list_tools())]
 
 
+# Built-in Claude Code tools that some scenarios need allowed in addition to
+# the lodestone tools — e.g. AskUserQuestion for the cross-project ASK
+# discipline assertion. Kept tight so scenarios remain about the lodestone
+# behaviors and not arbitrary tool use.
+EXTRA_ALLOWED_TOOLS = ["AskUserQuestion"]
+
+
+def allowed_tools_for_eval() -> list[str]:
+    return lodestone_tool_names() + EXTRA_ALLOWED_TOOLS
+
+
 def seed_db(db_path: Path, project_id: str, seeds: list[dict]) -> None:
     """Insert the scenario's memories into a fresh sandbox DB.
 
     Uses lodestone's own remember() so embeddings + FTS rows are populated
     exactly the same way they would be in production.
+
+    A seed entry can override `project_id` and `project_label` to land
+    under a different project_id than the scenario's default — this is what
+    lets cross-project scenarios seed memories belonging to "another
+    project" while the scenario's claude session runs as the empty
+    current project.
     """
     # Import locally so that callers who only want to grade don't need to
     # boot lodestone or its embedding deps.
@@ -70,7 +87,10 @@ def seed_db(db_path: Path, project_id: str, seeds: list[dict]) -> None:
 
     conn = db.open_db(db_path)
     for seed in seeds:
-        memory.remember(conn, project_id=project_id, **seed)
+        seed = dict(seed)
+        pid = seed.pop("project_id", project_id)
+        plabel = seed.pop("project_label", None)
+        memory.remember(conn, project_id=pid, project_label=plabel, **seed)
     conn.close()
 
 
@@ -101,7 +121,7 @@ def run_claude(user_message: str, mcp_config: Path, cwd: Path) -> tuple[list[dic
         "--verbose",
         "--mcp-config", str(mcp_config),
         "--strict-mcp-config",
-        "--allowedTools", ",".join(lodestone_tool_names()),
+        "--allowedTools", ",".join(allowed_tools_for_eval()),
         "--permission-mode", "bypassPermissions",
     ]
     result = subprocess.run(

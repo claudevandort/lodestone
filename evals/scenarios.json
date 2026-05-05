@@ -8,18 +8,28 @@
         "title": "Tried switching ORM from Django ORM to SQLAlchemy",
         "content": "Switched to SQLAlchemy 2.0 to get better async support. Hit hard blockers: our migration history broke because alembic and Django migrations use incompatible state tracking. Spent 3 days untangling. Reverted to Django ORM and added an asyncio bridge instead.",
         "outcome": "failed",
-        "tags": ["orm", "sqlalchemy", "migration"],
+        "tags": [
+          "orm",
+          "sqlalchemy",
+          "migration"
+        ],
         "confidence": 0.95
       }
     ],
     "user_message": "Let's switch our ORM to SQLAlchemy. The async support story will be much better.",
     "expects": {
-      "must_call": ["mcp__lodestone__recall"],
+      "must_call": [
+        "mcp__lodestone__recall"
+      ],
       "must_not_call": [],
       "tool_call_args_must_match": {
         "mcp__lodestone__recall": {
           "query": {
-            "any_of_substrings": ["sqlalchemy", "orm", "migration"]
+            "any_of_substrings": [
+              "sqlalchemy",
+              "orm",
+              "migration"
+            ]
           }
         }
       }
@@ -29,17 +39,27 @@
     "id": "should_remember_after_failed_attempt",
     "description": "When the user reports a freshly-encountered, non-obvious failure, Claude should proactively call remember to capture it without being asked.",
     "seed_memories": [],
-    "user_message": "Spent two hours on this — turned out our Pydantic v2 upgrade silently broke streaming SSE responses because v2's default serialization bypasses our custom validator entirely, so malformed payloads were going out without warning. Reverting Pydantic for now. Moving on to the auth changes.",
+    "user_message": "Spent two hours on this \u2014 turned out our Pydantic v2 upgrade silently broke streaming SSE responses because v2's default serialization bypasses our custom validator entirely, so malformed payloads were going out without warning. Reverting Pydantic for now. Moving on to the auth changes.",
     "expects": {
-      "must_call": ["mcp__lodestone__remember"],
+      "must_call": [
+        "mcp__lodestone__remember"
+      ],
       "must_not_call": [],
       "tool_call_args_must_match": {
         "mcp__lodestone__remember": {
           "kind": {
-            "any_of_substrings": ["attempt", "gotcha"]
+            "any_of_substrings": [
+              "attempt",
+              "gotcha"
+            ]
           },
           "content": {
-            "any_of_substrings": ["pydantic", "sse", "serializ", "validator"]
+            "any_of_substrings": [
+              "pydantic",
+              "sse",
+              "serializ",
+              "validator"
+            ]
           }
         }
       }
@@ -47,32 +67,50 @@
   },
   {
     "id": "should_NOT_remember_trivial_question",
-    "description": "Generic, project-irrelevant programming questions should NOT trigger remember. Tests restraint — quality over quantity.",
+    "description": "Generic, project-irrelevant programming questions should NOT trigger remember. Tests restraint \u2014 quality over quantity.",
     "seed_memories": [],
-    "user_message": "Quick Python question — what's the cleanest way to flatten a list of lists in Python 3?",
+    "user_message": "Quick Python question \u2014 what's the cleanest way to flatten a list of lists in Python 3?",
     "expects": {
       "must_call": [],
-      "must_not_call": ["mcp__lodestone__remember"]
+      "must_not_call": [
+        "mcp__lodestone__remember"
+      ]
     }
   },
   {
     "id": "should_phrase_memory_as_insight_not_transcript",
     "description": "Tests Principle 1 (insights, not transcripts). When capturing a debugging revelation, Claude should phrase the title as a transferable lesson about a class of situations, not a narrative of what happened today.",
     "seed_memories": [],
-    "user_message": "Spent the morning debugging — turns out FastAPI's BackgroundTasks run AFTER the HTTP response is sent but BEFORE the lifespan context exits, so if the server restarts mid-flight you lose the work because lifespan teardown doesn't wait. Switching to Celery for anything over ~30 seconds. Worth noting before we forget.",
+    "user_message": "Spent the morning debugging \u2014 turns out FastAPI's BackgroundTasks run AFTER the HTTP response is sent but BEFORE the lifespan context exits, so if the server restarts mid-flight you lose the work because lifespan teardown doesn't wait. Switching to Celery for anything over ~30 seconds. Worth noting before we forget.",
     "expects": {
-      "must_call": ["mcp__lodestone__remember"],
+      "must_call": [
+        "mcp__lodestone__remember"
+      ],
       "must_not_call": [],
       "tool_call_args_must_match": {
         "mcp__lodestone__remember": {
           "kind": {
-            "any_of_substrings": ["gotcha", "attempt"]
+            "any_of_substrings": [
+              "gotcha",
+              "attempt"
+            ]
           },
           "content": {
-            "any_of_substrings": ["fastapi", "backgroundtask", "lifespan", "celery"]
+            "any_of_substrings": [
+              "fastapi",
+              "backgroundtask",
+              "lifespan",
+              "celery"
+            ]
           },
           "title": {
-            "none_of_substrings": ["today", "this morning", "spent the", " i ", " we "]
+            "none_of_substrings": [
+              "today",
+              "this morning",
+              "spent the",
+              " i ",
+              " we "
+            ]
           }
         }
       }
@@ -85,19 +123,31 @@
       {
         "kind": "gotcha",
         "title": "DB connection pool starvation when holding a connection across external calls",
-        "content": "Holding a database connection across an external API call (HTTP, SMTP, S3) starves the connection pool — other workers stall waiting for a connection. Wait time scales with the slowest external service. Pattern: do the external call OUTSIDE the transaction, or use the outbox pattern to defer it. Symptom: requests that don't even touch the slow service start timing out under load.",
-        "tags": ["database", "connection-pool", "performance"],
+        "content": "Holding a database connection across an external API call (HTTP, SMTP, S3) starves the connection pool \u2014 other workers stall waiting for a connection. Wait time scales with the slowest external service. Pattern: do the external call OUTSIDE the transaction, or use the outbox pattern to defer it. Symptom: requests that don't even touch the slow service start timing out under load.",
+        "tags": [
+          "database",
+          "connection-pool",
+          "performance"
+        ],
         "confidence": 0.95
       }
     ],
     "user_message": "When the email-sending worker is busy with SMTP retries, our checkout endpoint becomes slow. Any ideas?",
     "expects": {
-      "must_call": ["mcp__lodestone__recall"],
+      "must_call": [
+        "mcp__lodestone__recall"
+      ],
       "must_not_call": [],
       "tool_call_args_must_match": {
         "mcp__lodestone__recall": {
           "query": {
-            "any_of_substrings": ["pool", "connection", "starvation", "external", "transaction"]
+            "any_of_substrings": [
+              "pool",
+              "connection",
+              "starvation",
+              "external",
+              "transaction"
+            ]
           }
         }
       }
@@ -105,11 +155,13 @@
   },
   {
     "id": "should_capture_standalone_memory",
-    "description": "Tests Principle 4 (memories must stand alone). Captured memories should not reference the current conversation — they need to make sense to a future reader with zero context.",
+    "description": "Tests Principle 4 (memories must stand alone). Captured memories should not reference the current conversation \u2014 they need to make sense to a future reader with zero context.",
     "seed_memories": [],
-    "user_message": "We've decided to stay on Pydantic v1 for now — the v2 migration cost across our serializers is too high this quarter, and v1 is still receiving security patches through 2025. Worth noting before someone proposes the upgrade again.",
+    "user_message": "We've decided to stay on Pydantic v1 for now \u2014 the v2 migration cost across our serializers is too high this quarter, and v1 is still receiving security patches through 2025. Worth noting before someone proposes the upgrade again.",
     "expects": {
-      "must_call": ["mcp__lodestone__remember"],
+      "must_call": [
+        "mcp__lodestone__remember"
+      ],
       "must_not_call": [],
       "tool_call_args_must_match": {
         "mcp__lodestone__remember": {
@@ -117,13 +169,64 @@
             "equals": "decision"
           },
           "content": {
-            "any_of_substrings": ["pydantic", "migration", "v1", "v2"]
+            "any_of_substrings": [
+              "pydantic",
+              "migration",
+              "v1",
+              "v2"
+            ]
           },
           "title": {
-            "none_of_substrings": ["today", "this conversation", "as discussed", "we're staying", "we've decided"]
+            "none_of_substrings": [
+              "today",
+              "this conversation",
+              "as discussed",
+              "we're staying",
+              "we've decided"
+            ]
           }
         }
       }
+    }
+  },
+  {
+    "id": "should_ask_before_applying_cross_project",
+    "description": "When recall returns cross-project memories with conventions, Claude must call AskUserQuestion before applying them \u2014 never silently inherit the other project's stack. The scenario's local project has zero memories so auto-fallback to other projects fires and trips the ASK protocol.",
+    "seed_memories": [
+      {
+        "kind": "decision",
+        "title": "Backend stack: FastAPI + SQLAlchemy 2.0 async + Postgres + Pydantic v2",
+        "content": "On the prior Python service we standardized on FastAPI for native async, SQLAlchemy 2.0 with typed mappers, asyncpg, Postgres 16, Pydantic v2 schemas. Alembic migrations: one-per-entity, atomic.",
+        "tags": [
+          "stack",
+          "fastapi",
+          "sqlalchemy"
+        ],
+        "confidence": 0.9,
+        "project_id": "other-python-service",
+        "project_label": "/home/user/Github/other-python-service"
+      },
+      {
+        "kind": "decision",
+        "title": "Domain-based folder layout for FastAPI past three domains",
+        "content": "Domain-based layout (api/, services/, repos/, models/ per domain) beats layer-based once more than three domains exist in a FastAPI codebase.",
+        "tags": [
+          "architecture",
+          "fastapi"
+        ],
+        "confidence": 0.9,
+        "project_id": "other-python-service",
+        "project_label": "/home/user/Github/other-python-service"
+      }
+    ],
+    "user_message": "I want to build a small Python service. Help me set up the stack and project structure for a CRUD API.",
+    "expects": {
+      "must_call": [
+        "mcp__lodestone__recall",
+        "AskUserQuestion"
+      ],
+      "must_not_call": [],
+      "tool_call_args_must_match": {}
     }
   }
 ]
