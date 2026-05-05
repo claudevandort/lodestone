@@ -5,12 +5,12 @@
   "owner": {
     "name": "Claudio Guerra"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "plugins": [
     {
       "name": "lodestone-memory",
       "description": "Persistent project memory for Claude Code: hybrid retrieval, auto-memory dual-write, cross-project recall, end-of-task curator.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Claudio Guerra"
       },
