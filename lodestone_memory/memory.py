@@ -220,12 +220,13 @@ def recall(
     # response so the model sees it alongside the cross-project results.
     if any(r.get("cross_project") for r in serialized):
         meta["next_action"] = (
-            "Cross-project results returned. You MUST call AskUserQuestion "
-            "before applying any of these — even if the user's prompt seemed "
-            "to pre-consent (e.g. 'use my prior stack'). The modal lets the "
-            "user see which conventions and source_project, then confirm or "
-            "adjust per item. Don't paraphrase the conventions in chat in "
-            "place of asking — that bypasses the review step."
+            "Cross-project results returned. Your NEXT tool call MUST be "
+            "AskUserQuestion. No reasoning about applicability first — "
+            "even if you'd judge these conventions as 'wrong fit' or "
+            "'overkill', surface them and let the user decide. The modal "
+            "IS where applicability gets decided. Include source_project. "
+            "Don't paraphrase the conventions in chat ('I'll use X instead') "
+            "— that's the bug we're closing."
         )
     return {"results": serialized, "meta": meta}
 

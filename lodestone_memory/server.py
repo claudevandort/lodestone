@@ -74,21 +74,21 @@ management"). Multiple cheap recalls beat one narrow miss.
 `source_project`.
 - Recall mid-task when an unfamiliar convention may have a memory.
 
-CROSS-PROJECT RESULTS — ALWAYS ASK FIRST
+CROSS-PROJECT RESULTS — NEXT TOOL CALL IS ASKUSERQUESTION
 When `meta.next_action` is set OR any result has `cross_project: true`, \
-you MUST call `AskUserQuestion` BEFORE applying — EVEN IF the user's \
-prompt seemed to pre-consent. The modal lets them review the specific \
-conventions and `source_project`, then confirm/adjust. Don't paraphrase \
-in chat — that bypasses the review.
+your NEXT tool call MUST be `AskUserQuestion`. No reasoning about \
+applicability first — even if you'd judge the conventions as "wrong fit" \
+or "overkill", surface them. The modal IS where applicability gets \
+decided. Include `source_project`. Don't paraphrase in chat ("I'll use X \
+instead") — that bypasses the review.
 
 When capturing a memory that builds on a recalled one, populate \
 `links: [{to_uuid, kind: "related"}]` — one entry per source.
 
 REMEMBER AS DELIBERATE SYNTHESIS
-At reflection points (decision made, attempt resolved, gotcha hit, \
-preference expressed), call `remember`. Phrase as INSIGHTS that STAND \
-ALONE — no "as we discussed". Format: "in situation X, approach Y has \
-property Z."
+At reflection points (decision/attempt/gotcha/preference), call \
+`remember`. Phrase as INSIGHTS that STAND ALONE — no "as we discussed". \
+Format: "in situation X, approach Y has property Z."
 
 Kinds: decision | attempt (set outcome) | gotcha | preference | fact.
 

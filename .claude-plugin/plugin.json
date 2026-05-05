@@ -1,6 +1,6 @@
 {
   "name": "lodestone-memory",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Persistent project memory for Claude Code: hybrid retrieval (Voyage embeddings + sqlite-vec + FTS5) with auto-memory dual-write, cross-project recall, and a curator subagent for end-of-task capture.",
   "author": {
     "name": "Claudio Guerra"
