@@ -58,11 +58,23 @@ def lodestone_tool_names() -> list[str]:
     return [f"mcp__lodestone__{t.name}" for t in asyncio.run(mcp.list_tools())]
 
 
-# Built-in Claude Code tools that some scenarios need allowed in addition to
-# the lodestone tools — e.g. AskUserQuestion for the cross-project ASK
-# discipline assertion. Kept tight so scenarios remain about the lodestone
-# behaviors and not arbitrary tool use.
-EXTRA_ALLOWED_TOOLS = ["AskUserQuestion"]
+# Built-in Claude Code tools allowed alongside the lodestone tools.
+#
+# AskUserQuestion: scenarios assert the cross-project ASK protocol fires
+# through this tool.
+#
+# Build tools (Write/Edit/Read/Bash/Glob/Grep, Task family): give Claude the
+# same toolbox it has in a real session. Without these the failure modes the
+# eval is meant to catch — Claude rushing into `Write` instead of recalling
+# first, or applying cross-project conventions silently — aren't reproducible
+# in the sandbox. The eval instead sees Claude have no choice but to use
+# lodestone tools, which masks the prompt-discipline question we're trying
+# to test.
+EXTRA_ALLOWED_TOOLS = [
+    "AskUserQuestion",
+    "Write", "Edit", "Read", "Bash", "Glob", "Grep",
+    "TaskCreate", "TaskUpdate", "TaskList",
+]
 
 
 def allowed_tools_for_eval() -> list[str]:
