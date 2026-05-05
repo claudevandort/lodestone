@@ -74,6 +74,13 @@ true` and `source_project`.
 - Recall again mid-task when an unfamiliar convention may have a memory \
 explaining why.
 
+CROSS-PROJECT RESULTS — STOP AND ASK
+When `meta.next_action` is set OR any result has `cross_project: true`, you \
+MUST NOT apply silently. Use `AskUserQuestion` (NOT plain prose) to confirm \
+before applying — include the `source_project` in the question text. When \
+capturing a memory that builds on a recalled one, populate \
+`links: [{to_uuid, kind: "related"}]` — one entry per source.
+
 REMEMBER AS DELIBERATE SYNTHESIS
 At natural reflection points (decision made, attempt resolved, gotcha hit, \
 durable preference expressed), ask: "what is the transferable lesson?" — and \
@@ -87,16 +94,8 @@ Kinds: decision | attempt (set outcome) | gotcha | preference | fact.
 If you finish substantial work without capturing along the way, invoke the \
 `lodestone-memory-curator` subagent for a wrap-up review.
 
-CROSS-PROJECT MEMORIES — APPLY WITH CARE
-When results carry `cross_project: true`:
-1. NEVER apply silently. Surface the `source_project` in your reply.
-2. ASK before applying: "Memory from <source_project> suggests X — worth \
-using here?"
-3. When capturing a memory that builds on recalled ones, populate \
-`links: [{to_uuid, kind: "related"}]` — one entry per source.
-
-DO NOT REMEMBER trivial edits, generic programming knowledge, info that \
-belongs in code/docs/commits, or transient state. Prefer `update_memory` or \
+DO NOT REMEMBER trivial edits, generic programming knowledge, info in \
+code/docs/commits, or transient state. Prefer `update_memory` or \
 `supersede_with` over near-duplicates.
 """
 

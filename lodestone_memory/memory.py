@@ -209,14 +209,23 @@ def recall(
         _serialize(conn, row, score=score, expand_links=True, current_project_id=pid)
         for score, row in ranked
     ]
-    return {
-        "results": serialized,
-        "meta": {
-            "fallback_to_other_projects": fallback_used,
-            "local_count": local_count,
-            "returned_count": len(serialized),
-        },
+    meta = {
+        "fallback_to_other_projects": fallback_used,
+        "local_count": local_count,
+        "returned_count": len(serialized),
     }
+    # Reinforce the ASK-before-applying rule at the moment it matters. The
+    # session-level discipline in LODESTONE_INSTRUCTIONS is easy to skim past
+    # mid-build; this field surfaces the directive directly in the recall
+    # response so the model sees it alongside the cross-project results.
+    if any(r.get("cross_project") for r in serialized):
+        meta["next_action"] = (
+            "Cross-project results returned. Before applying any of these, "
+            "use AskUserQuestion to confirm with the user. Include the "
+            "source_project in the question (e.g. 'Memory from <source_project> "
+            "suggests X — use it here?'). Never apply silently."
+        )
+    return {"results": serialized, "meta": meta}
 
 
 def _empty_recall_response(*, local_count: int, fallback_used: bool) -> dict:

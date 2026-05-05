@@ -296,6 +296,52 @@ def test_recall_auto_retries_cross_project_when_local_empty(temp_db, fake_embed,
     assert hit["source_project"] == "alpha-project"
 
 
+def test_recall_meta_next_action_set_when_cross_project_hits_present(temp_db, fake_embed, clock):
+    """Regression: when a recall response includes cross-project rows, the meta
+    object must surface a `next_action` directive telling Claude to use
+    AskUserQuestion before applying. The session-level discipline in
+    LODESTONE_INSTRUCTIONS is easy to skim past mid-build; this in-response
+    field reinforces the rule at the moment it matters.
+
+    Found via the demo-recording session (compass): Claude recalled, got
+    cross-project hits surfacing the CRM stack, and silently picked a
+    different stack without asking. Adding this directive into the recall
+    response itself is the second line of defense alongside the prompt.
+    """
+    memory.remember(
+        temp_db, kind="decision",
+        title="API stack: FastAPI + SQLAlchemy async + Postgres",
+        content="chose FastAPI for native async + SQLAlchemy 2.0 typed mappers",
+        project_id="alpha",
+        project_label="alpha-project",
+    )
+    results = memory.recall(temp_db, query="API stack", project_id="beta", k=5)
+    assert any(r["cross_project"] for r in results["results"])
+    assert "next_action" in results["meta"], \
+        "meta.next_action must be set when any result is cross_project"
+    directive = results["meta"]["next_action"]
+    assert "AskUserQuestion" in directive, \
+        "directive must name AskUserQuestion specifically"
+    assert "source_project" in directive, \
+        "directive must remind Claude to surface the source_project"
+
+
+def test_recall_meta_next_action_absent_when_only_local_hits(temp_db, fake_embed, clock):
+    """Local-only recall: no cross-project rows, no `next_action` directive."""
+    memory.remember(
+        temp_db, kind="fact",
+        title="local cache TTL",
+        content="redis keys expire after five minutes",
+        project_id="beta",
+        project_label="beta-project",
+    )
+    results = memory.recall(temp_db, query="cache TTL", project_id="beta", k=5)
+    assert results["meta"]["local_count"] >= 1
+    assert all(not r["cross_project"] for r in results["results"])
+    assert "next_action" not in results["meta"], \
+        "meta.next_action must NOT be set for local-only recalls"
+
+
 def test_recall_meta_no_fallback_on_explicit_include_other_projects(temp_db, fake_embed, clock):
     """Explicit include_other_projects=True is the caller's choice, NOT a
     fallback — meta should reflect that even when local was empty."""
