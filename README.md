@@ -92,22 +92,24 @@ and mirror auto-memory writes into Lodestone via the hook.
 
 The cases below show what that looks like in practice.
 
-### Tip: pair Lodestone with Plan Mode for new projects
+### Tip: pair Lodestone with Plan Mode
 
-For a new project or substantial feature work, start your session in
-**plan mode** (Tab in the input box, or `--permission-mode plan`). Plan
-mode prompts Claude to investigate before acting — which is exactly when
-Lodestone is most useful. In plan mode, Claude reliably:
+Lodestone works most reliably when you run a task in **plan mode** (Tab
+in the input box, or `--permission-mode plan`). Plan mode prompts Claude
+to investigate before acting — which is exactly when Lodestone is most
+useful. Whether you're starting a new project, building a feature on an
+existing codebase, debugging, or refactoring, plan mode makes Claude:
 
-- **Recalls past conventions** before proposing an approach
-- **Bundles multiple decisions** into a single `AskUserQuestion` modal
-  (stack, scope, conventions to inherit, etc.) so you pick what applies in
-  one pass instead of in scattered prose back-and-forth
-- **Surveys related projects** via the `Explore` subagent to ground the
-  plan in your actual code, not just memories
-- **Invokes the curator subagent** at end-of-task — which captures fresh
-  insights AND writes an "inheritance receipt" memory linking back to
-  the source project's decisions when conventions were adopted wholesale
+- **Recall past conventions and gotchas** before proposing an approach
+- **Bundle multiple decisions** into a single `AskUserQuestion` modal
+  (stack/library/approach choices, conventions to inherit, etc.) so you
+  pick what applies in one pass instead of in scattered prose back-and-forth
+- **Survey related projects or files** via the `Explore` subagent to
+  ground the plan in your actual code, not just memories
+- **Invoke the curator subagent** at end-of-task — which captures fresh
+  insights AND, when conventions were adopted wholesale from another
+  project, writes an "inheritance receipt" memory linking back to the
+  source decisions
 
 Lodestone works in regular execution mode too, but recall is more
 sporadic (Claude may dive into the task before checking memory) and
