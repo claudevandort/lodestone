@@ -73,6 +73,37 @@ the memory — they should be able to act on it cold.
 5. **Set `confidence` honestly.** 0.95 = verified by test/source. 0.7 =
    default. 0.3 = speculative.
 
+## Wholesale inheritance — write an inheritance receipt
+
+If the recent work block adopted MULTIPLE patterns from another project (e.g.
+the user picked "use the CRM project's FastAPI+SQLAlchemy stack" plus several
+of its conventions/gotchas via an `AskUserQuestion` modal), write ONE
+**inheritance receipt** memory in addition to (not instead of) the project-
+specific insights you'd capture anyway:
+
+- **Title:** `Inherited <short pattern list> from <source_project>` —
+  scannable, ≤80 chars. Example: *"Inherited FastAPI+SQLA stack and domain
+  layout from /home/user/Github/crm"*.
+- **Kind:** `decision` — it's a deliberate architectural decision to copy.
+- **Content:** brief list of WHAT was adopted (the picked options) and a
+  one-line WHY (typically: *"User confirmed via AskUserQuestion modal at
+  project start"*). Don't restate the conventions themselves — those live
+  in the source memories you're linking to.
+- **Links:** ONE `related` entry per inherited source memory. Pull the
+  uuids from the recall results.
+
+This receipt makes the genealogy traversable later. Without it, the new
+project looks like it independently arrived at the same stack — six
+months from now nobody will know to look at the source project. With it,
+recall on the new project surfaces the receipt, and `get_memory` on the
+receipt's links walks back to the original decisions.
+
+When NOT to write a receipt: when only ONE pattern was inherited (use a
+plain `related` link on the relevant per-insight memory instead), or
+when the user's prompt named the conventions directly without going
+through cross-project recall (then there's no genealogy — just a
+preference statement).
+
 ## Restraint (the most important section)
 
 Quality of insight beats frequency of capture. **Most reflection passes
