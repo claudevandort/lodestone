@@ -92,6 +92,28 @@ and mirror auto-memory writes into Lodestone via the hook.
 
 The cases below show what that looks like in practice.
 
+### Tip: pair Lodestone with Plan Mode for new projects
+
+For a new project or substantial feature work, start your session in
+**plan mode** (Tab in the input box, or `--permission-mode plan`). Plan
+mode prompts Claude to investigate before acting — which is exactly when
+Lodestone is most useful. In plan mode, Claude reliably:
+
+- **Recalls past conventions** before proposing an approach
+- **Bundles multiple decisions** into a single `AskUserQuestion` modal
+  (stack, scope, conventions to inherit, etc.) so you pick what applies in
+  one pass instead of in scattered prose back-and-forth
+- **Surveys related projects** via the `Explore` subagent to ground the
+  plan in your actual code, not just memories
+- **Invokes the curator subagent** at end-of-task — which captures fresh
+  insights AND writes an "inheritance receipt" memory linking back to
+  the source project's decisions when conventions were adopted wholesale
+
+Lodestone works in regular execution mode too, but recall is more
+sporadic (Claude may dive into the task before checking memory) and
+end-of-task capture depends on you typing `/remember`. Plan mode makes
+the discipline natural.
+
 ### Recall an insight you forgot you had
 
 ```
